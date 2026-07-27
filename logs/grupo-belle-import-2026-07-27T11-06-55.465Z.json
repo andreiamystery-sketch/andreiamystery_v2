@@ -1,0 +1,16 @@
+{
+  "mode": "limit-5",
+  "startedAt": "2026-07-27T11:06:54.090Z",
+  "finishedAt": "2026-07-27T11:06:55.465Z",
+  "productsFound": 605,
+  "productsSynchronized": 5,
+  "catalogProducts": 5,
+  "imagesDownloaded": 0,
+  "imagesReused": 15,
+  "duplicateSkus": [
+    {
+      "sku": "XL-4946",
+      "count": 2
+    }
+  ]
+}

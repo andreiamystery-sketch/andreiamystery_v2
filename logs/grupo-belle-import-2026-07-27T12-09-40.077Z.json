@@ -1,0 +1,36 @@
+{
+  "mode": "full",
+  "startedAt": "2026-07-27T12:08:21.098Z",
+  "finishedAt": "2026-07-27T12:09:40.077Z",
+  "productsFound": 604,
+  "productsSynchronized": 604,
+  "catalogProducts": 605,
+  "imagesDownloaded": 0,
+  "imagesReused": 1512,
+  "duplicateSkus": [
+    {
+      "sku": "XL-4946",
+      "count": 2
+    },
+    {
+      "sku": "P28",
+      "count": 2
+    },
+    {
+      "sku": "P22",
+      "count": 2
+    },
+    {
+      "sku": "N095",
+      "count": 2
+    }
+  ],
+  "productsWithoutPrice": [
+    {
+      "supplierProductId": "6908",
+      "sku": "XLH6703",
+      "name": "Colar em aço estrela rosa GB",
+      "supplierUrl": "https://grupobelle.com/6908-37639-xlh6703-colar-em-aco-estrela-rosa-gb.html"
+    }
+  ]
+}

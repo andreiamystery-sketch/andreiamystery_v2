@@ -1,0 +1,80 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background: #050504;
+  color: #f4efe4;
+  font-family: var(--font-sans);
+  min-width: 320px;
+}
+
+::selection { background: #c99732; color: #050504; }
+
+:focus-visible {
+  outline: 2px solid #d8ae52;
+  outline-offset: 4px;
+}
+
+section[id] { scroll-margin-top: 8rem; }
+
+button,
+input,
+textarea {
+  font: inherit;
+}
+
+@layer components {
+  .eyebrow {
+    @apply text-xs font-bold uppercase tracking-[0.34em] text-champagne;
+  }
+
+  .premium-button {
+    @apply inline-flex min-h-12 items-center justify-center gap-2 border border-champagne bg-champagne px-7 text-xs font-extrabold uppercase tracking-[0.18em] text-obsidian transition duration-300 hover:bg-velvet;
+  }
+
+  .ghost-button {
+    @apply inline-flex min-h-11 items-center justify-center gap-2 border border-champagne/55 bg-transparent px-7 text-xs font-extrabold uppercase tracking-[0.18em] text-champagne transition hover:bg-champagne hover:text-obsidian;
+  }
+
+  .icon-button {
+    @apply grid h-11 w-11 place-items-center text-ivory transition hover:text-gold;
+  }
+
+  .pill-counter {
+    @apply absolute -right-1 top-1 grid h-5 min-w-5 place-items-center rounded-full bg-champagne px-1 text-[10px] font-bold text-obsidian;
+  }
+
+  .filter-button {
+    @apply min-h-11 border border-champagne/35 bg-transparent px-6 text-xs font-extrabold uppercase tracking-[0.2em] text-smoke transition hover:border-champagne hover:text-velvet;
+  }
+
+  .filter-button-active {
+    @apply border-champagne bg-champagne text-obsidian;
+  }
+
+  .footer-title {
+    @apply text-xs font-bold uppercase tracking-[0.26em] text-champagne;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

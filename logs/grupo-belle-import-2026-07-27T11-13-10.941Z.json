@@ -1,0 +1,28 @@
+{
+  "mode": "full",
+  "startedAt": "2026-07-27T11:09:42.019Z",
+  "finishedAt": "2026-07-27T11:13:10.941Z",
+  "productsFound": 605,
+  "productsSynchronized": 605,
+  "catalogProducts": 605,
+  "imagesDownloaded": 1500,
+  "imagesReused": 15,
+  "duplicateSkus": [
+    {
+      "sku": "XL-4946",
+      "count": 2
+    },
+    {
+      "sku": "P28",
+      "count": 2
+    },
+    {
+      "sku": "P22",
+      "count": 2
+    },
+    {
+      "sku": "N095",
+      "count": 2
+    }
+  ]
+}
