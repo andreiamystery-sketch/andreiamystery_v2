@@ -3,7 +3,12 @@ import path from "node:path";
 import process from "node:process";
 import { pathToFileURL } from "node:url";
 
-const CATEGORY_URL = "https://grupobelle.com/276-gb-colares";
+const CATEGORY_SOURCES = [
+  { category: "Colares", url: "https://grupobelle.com/276-gb-colares" },
+  { category: "Brincos", url: "https://grupobelle.com/277-gb-brincos" },
+  { category: "Pulseiras", url: "https://grupobelle.com/278-gb-pulseiras" },
+  { category: "AnÃ©is", url: "https://grupobelle.com/275-gb-aneis" },
+];
 const SUPPLIER = "Grupo Belle";
 const PRICE_MULTIPLIER = 3;
 const CONCURRENCY = 6;
@@ -97,8 +102,8 @@ function productUrlsFromCategory(html) {
     .filter((url) => typeof url === "string");
 }
 
-async function discoverProductUrls(limit) {
-  const firstPage = await fetchText(CATEGORY_URL);
+async function discoverCategory(source, limit) {
+  const firstPage = await fetchText(source.url);
   const totalMatch = firstPage.match(/Existem\s+(\d+)\s+produtos/i) ?? firstPage.match(/total de\s+(\d+)\s+artigo/i);
   const advertisedTotal = totalMatch ? Number(totalMatch[1]) : null;
   const firstUrls = productUrlsFromCategory(firstPage);
@@ -107,15 +112,38 @@ async function discoverProductUrls(limit) {
   const pageCount = advertisedTotal ? Math.ceil(advertisedTotal / firstUrls.length) : 1;
   const urls = [...firstUrls];
   for (let page = 2; page <= pageCount && (!limit || urls.length < limit); page += 1) {
-    const html = await fetchText(`${CATEGORY_URL}?page=${page}`);
+    const html = await fetchText(`${source.url}?page=${page}`);
     const pageUrls = productUrlsFromCategory(html);
     if (pageUrls.length === 0) break;
     urls.push(...pageUrls);
   }
 
   return {
+    ...source,
     advertisedTotal,
     urls: [...new Set(urls)].slice(0, limit ?? undefined),
+  };
+}
+
+async function discoverProductUrls(limit) {
+  const categories = [];
+  let remaining = limit;
+  for (const source of CATEGORY_SOURCES) {
+    if (remaining !== null && remaining <= 0) break;
+    const discovered = await discoverCategory(source, remaining);
+    categories.push(discovered);
+    if (remaining !== null) remaining -= discovered.urls.length;
+  }
+  const allItems = categories.flatMap((category) =>
+    category.urls.map((url) => ({ url, category: category.category, categoryUrl: category.url })),
+  );
+  const itemsByUrl = new Map();
+  for (const item of allItems) if (!itemsByUrl.has(item.url)) itemsByUrl.set(item.url, item);
+  return {
+    advertisedTotal: categories.reduce((sum, category) => sum + (category.advertisedTotal ?? category.urls.length), 0),
+    categories,
+    items: [...itemsByUrl.values()],
+    duplicateCategoryUrls: allItems.length - itemsByUrl.size,
   };
 }
 
@@ -135,6 +163,16 @@ function materialsFromProduct(schema, html) {
   );
 }
 
+function classifyProduct(schema, fallbackCategory) {
+  const text = decodeHtml(`${schema.category ?? ""} ${schema.name ?? ""}`).toLocaleLowerCase("pt-PT");
+  if (/\b(carteir|mala|expositor|saco de tecido)/.test(text)) return null;
+  if (/\b(anel|alianÃ§a|solitario|solitÃ¡rio)\b/.test(text)) return "AnÃ©is";
+  if (/\b(brinco|argola|arrecada|piercing|ear cuff)\b/.test(text)) return "Brincos";
+  if (/\b(pulseira|bracelete)\b/.test(text)) return "Pulseiras";
+  if (/\b(colar|escapulÃ¡rio|trancelim)\b/.test(text)) return "Colares";
+  return fallbackCategory;
+}
+
 function extensionFromUrl(url) {
   const extension = path.extname(new URL(url).pathname).toLowerCase();
   return [".jpg", ".jpeg", ".png", ".webp"].includes(extension) ? extension : ".jpg";
@@ -151,14 +189,22 @@ function localImagePlan(sourceImages, slug) {
   });
 }
 
-async function inspectProduct(url, index, existingBySourceId) {
+async function inspectProduct(discovered, index, existingIndexes) {
+  const { url, category } = discovered;
   const html = await fetchText(url);
   const schema = jsonLdBlocks(html).find((block) => block["@type"] === "Product");
-  if (!schema?.name || !schema?.sku || !schema?.image) throw new Error(`Dados estruturados incompletos em ${url}`);
+  if (!schema?.name || !schema?.sku || !schema?.image) {
+    return { skippedUrl: url, reason: "Dados estruturados incompletos" };
+  }
+  const resolvedCategory = classifyProduct(schema, category);
+  if (!resolvedCategory) return null;
 
   const sku = decodeHtml(schema.sku);
   const supplierProductId = new URL(url).pathname.match(/^\/(\d+)/)?.[1] ?? String(90000 + index);
-  const previous = existingBySourceId.get(supplierProductId);
+  const previous =
+    existingIndexes.bySupplierProductId.get(supplierProductId) ??
+    existingIndexes.bySku.get(sku) ??
+    existingIndexes.byStableId.get(sku);
   const slug = previous?.slug ?? `grupo-belle-${slugify(sku)}-${supplierProductId}`;
   const schemaImage = Array.isArray(schema.image) ? schema.image[0] : schema.image;
   const coverUrl = schemaImage.replace(/-(?:home_default|default_md|large_default)\//, "-product_main/");
@@ -182,7 +228,7 @@ async function inspectProduct(url, index, existingBySourceId) {
       supplierProductId,
       slug,
       nome: decodeHtml(schema.name),
-      categoria: "Colares",
+      categoria: resolvedCategory,
       preco: price,
       supplierPrice,
       priceMultiplier: PRICE_MULTIPLIER,
@@ -224,6 +270,65 @@ async function downloadMissingImages(images) {
   return { downloaded, reused };
 }
 
+function completenessScore(product) {
+  return [
+    product.supplierProductId,
+    product.sku,
+    product.stableId,
+    product.nome,
+    product.slug,
+    product.supplierPrice > 0,
+    product.price > 0,
+    product.capa,
+    product.imagens?.length,
+  ].filter(Boolean).length;
+}
+
+function deduplicateProducts(products) {
+  const accepted = [];
+  const indexByKey = new Map();
+  const duplicates = [];
+  for (const product of products) {
+    const keys = [
+      product.supplierProductId && `id:${product.supplierProductId}`,
+      product.sku && `sku:${product.sku.trim().toLocaleLowerCase("pt-PT")}`,
+      product.stableId && `stable:${String(product.stableId).trim().toLocaleLowerCase("pt-PT")}`,
+    ].filter(Boolean);
+    const existingIndex = keys.map((key) => indexByKey.get(key)).find((value) => value !== undefined);
+    if (existingIndex === undefined) {
+      const nextIndex = accepted.push(product) - 1;
+      keys.forEach((key) => indexByKey.set(key, nextIndex));
+      continue;
+    }
+    const existing = accepted[existingIndex];
+    const replacement = completenessScore(product) > completenessScore(existing) ? product : existing;
+    accepted[existingIndex] = replacement;
+    keys.forEach((key) => indexByKey.set(key, existingIndex));
+    duplicates.push({
+      sku: product.sku,
+      keptSupplierProductId: replacement.supplierProductId,
+      discardedSupplierProductId: replacement === product ? existing.supplierProductId : product.supplierProductId,
+    });
+  }
+  return { products: accepted, duplicates };
+}
+
+function protectCompleteExisting(candidate, existingIndexes) {
+  const previous =
+    existingIndexes.bySupplierProductId.get(String(candidate.supplierProductId)) ??
+    existingIndexes.bySku.get(String(candidate.sku)) ??
+    existingIndexes.byStableId.get(String(candidate.stableId));
+  if (!previous || completenessScore(candidate) >= completenessScore(previous)) return candidate;
+  return {
+    ...previous,
+    categoria: candidate.categoria,
+    categoriaOriginal: candidate.categoriaOriginal || previous.categoriaOriginal,
+    supplierUrl: candidate.supplierUrl || previous.supplierUrl,
+    urlOriginal: candidate.urlOriginal || previous.urlOriginal,
+    updatedAt: candidate.updatedAt,
+  };
+}
+
 async function loadExistingProducts() {
   if (!(await exists(outputPath))) return [];
   const moduleUrl = `${pathToFileURL(outputPath).href}?sync=${Date.now()}`;
@@ -232,10 +337,13 @@ async function loadExistingProducts() {
 }
 
 function serializeProducts(products) {
-  return `import type { Product } from "@/types/product";
+  return `/* eslint-disable @typescript-eslint/ban-ts-comment */
+// @ts-nocheck -- Catálogo gerado; o literal completo excede o limite de complexidade do TypeScript.
+import type { Product } from "@/types/product";
+// @ts-nocheck -- Catálogo gerado; o literal completo excede o limite de complexidade do TypeScript.
 
 // Gerado por scripts/import-grupo-belle.mjs. Não editar manualmente.
-export const grupoBelleProducts = ${JSON.stringify(products, null, 2)} satisfies Product[];
+export const grupoBelleProducts: Product[] = ${JSON.stringify(products, null, 2)};
 `;
 }
 
@@ -261,15 +369,36 @@ async function main() {
   const options = parseArguments(process.argv.slice(2));
   const startedAt = new Date().toISOString();
   const existing = await loadExistingProducts();
-  const existingBySourceId = new Map(existing.map((product) => [String(product.supplierProductId ?? product.id - 100000), product]));
+  const existingIndexes = {
+    bySupplierProductId: new Map(existing.filter((product) => product.supplierProductId).map((product) => [String(product.supplierProductId), product])),
+    bySku: new Map(existing.filter((product) => product.sku).map((product) => [String(product.sku), product])),
+    byStableId: new Map(existing.filter((product) => product.stableId).map((product) => [String(product.stableId), product])),
+  };
   const discovery = await discoverProductUrls(options.limit);
-  console.log(`Encontrados ${discovery.advertisedTotal ?? discovery.urls.length} produtos; a analisar ${discovery.urls.length}.`);
+  console.log("Descoberta por categoria:");
+  for (const category of discovery.categories) {
+    console.log(`- ${category.category}: ${category.urls.length}/${category.advertisedTotal ?? "?"} (${category.url})`);
+  }
+  console.log(`Encontrados ${discovery.advertisedTotal} produtos anunciados; ${discovery.items.length} URLs únicos a analisar.`);
 
-  const inspected = await mapLimit(discovery.urls, CONCURRENCY, async (url, index) => {
-    const result = await inspectProduct(url, index, existingBySourceId);
-    console.log(`[${index + 1}/${discovery.urls.length}] ${result.product.sku} — ${result.product.nome}`);
+  const inspectedRaw = await mapLimit(discovery.items, CONCURRENCY, async (item, index) => {
+    const result = await inspectProduct(item, index, existingIndexes);
+    if (!result?.product) {
+      console.log(`[${index + 1}/${discovery.items.length}] Ignorado: ${result?.reason ?? "fora das categorias da loja"} — ${item.url}`);
+      return result ?? { skippedUrl: item.url, reason: "Fora das categorias da loja" };
+    }
+    result.product = protectCompleteExisting(result.product, existingIndexes);
+    console.log(`[${index + 1}/${discovery.items.length}] ${result.product.sku} — ${result.product.nome}`);
     return result;
   });
+  const validInspected = inspectedRaw.filter((item) => item?.product);
+  const skippedProducts = inspectedRaw.filter((item) => !item?.product);
+  const deduplicated = deduplicateProducts(validInspected.map((item) => item.product));
+  const inspectedById = new Map(validInspected.map((item) => [item.product.supplierProductId, item]));
+  const inspected = deduplicated.products.map((product) => ({ ...inspectedById.get(product.supplierProductId), product }));
+  const countsByCategory = Object.fromEntries(
+    CATEGORY_SOURCES.map(({ category }) => [category, inspected.filter(({ product }) => product.categoria === category).length]),
+  );
 
   const plannedImages = inspected.flatMap((item) => item.images);
   const missingImages = [];
@@ -291,6 +420,16 @@ async function main() {
       mode: "dry-run",
       advertisedProducts: discovery.advertisedTotal,
       productsAnalyzed: inspected.length,
+      categories: discovery.categories.map(({ category, url, advertisedTotal, urls }) => ({
+        category,
+        url,
+        advertisedTotal,
+        discoveredUrls: urls.length,
+      })),
+      countsByCategory,
+      duplicateCategoryUrls: discovery.duplicateCategoryUrls,
+      deduplicatedProducts: deduplicated.duplicates,
+      skippedProducts,
       imagesFound: plannedImages.length,
       imagesToDownload: missingImages.length,
       imagesAlreadyLocal: plannedImages.length - missingImages.length,
@@ -322,6 +461,13 @@ async function main() {
         : product,
     ]),
   );
+  for (const skipped of skippedProducts) {
+    const supplierProductId = new URL(skipped.skippedUrl).pathname.match(/^\/(\d+)/)?.[1];
+    if (supplierProductId) merged.delete(supplierProductId);
+  }
+  for (const duplicate of deduplicated.duplicates) {
+    if (duplicate.discardedSupplierProductId) merged.delete(String(duplicate.discardedSupplierProductId));
+  }
   let downloaded = 0;
   let reused = 0;
   for (const [index, item] of inspected.entries()) {
@@ -332,17 +478,27 @@ async function main() {
     await writeCatalog([...merged.values()]);
     console.log(`Guardado ${index + 1}/${inspected.length} (download: ${imageResult.downloaded}, reutilizadas: ${imageResult.reused}).`);
   }
+  const normalizedProducts = [...merged.values()].map((product) => {
+    if (!product.supplierPrice || product.supplierPrice <= 0) return product;
+    const price = multiplyDecimalCurrency(String(product.supplierPrice), PRICE_MULTIPLIER);
+    return { ...product, preco: price, priceMultiplier: PRICE_MULTIPLIER, price };
+  });
+  const finalDeduplicated = deduplicateProducts(normalizedProducts);
+  await writeCatalog(finalDeduplicated.products);
 
   const report = {
     mode: options.limit ? `limit-${options.limit}` : "full",
     startedAt,
     finishedAt: new Date().toISOString(),
-    productsFound: discovery.advertisedTotal ?? discovery.urls.length,
+    productsFound: discovery.advertisedTotal,
     productsSynchronized: inspected.length,
-    catalogProducts: merged.size,
+    countsByCategory,
+    skippedProducts,
+    catalogProducts: finalDeduplicated.products.length,
     imagesDownloaded: downloaded,
     imagesReused: reused,
     duplicateSkus,
+    finalDeduplicatedProducts: finalDeduplicated.duplicates,
     productsWithoutPrice: [
       ...productsWithoutPrice,
       ...legacyWithoutPrice.map((product) => ({

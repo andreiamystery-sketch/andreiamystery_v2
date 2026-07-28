@@ -5,6 +5,8 @@ import { Footer } from "@/components/footer";
 import { Header } from "@/components/header";
 import { StoreProvider } from "@/hooks/use-store";
 import { MusicPlayer } from "@/components/music-player";
+import { getPublishedProducts, toPublicProduct } from "@/lib/product-visibility";
+import { storeSettings } from "@/data/store-settings";
 
 const serif = Cormorant_Garamond({ subsets: ["latin"], variable: "--font-serif", display: "swap", weight: ["500", "600", "700"] });
 const sans = Manrope({ subsets: ["latin"], variable: "--font-sans", display: "swap" });
@@ -28,11 +30,32 @@ export const metadata: Metadata = {
   },
 };
 
-export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
+export default async function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
+  const publishedProducts = (await getPublishedProducts()).map(toPublicProduct);
+  const organizationSchema = {
+    "@context": "https://schema.org",
+    "@type": "Organization",
+    name: storeSettings.storeName,
+    url: "https://andreasmystery.pt",
+    email: storeSettings.orderEmail,
+    telephone: storeSettings.contactPhoneInternational,
+    sameAs: [storeSettings.instagramUrl],
+    contactPoint: {
+      "@type": "ContactPoint",
+      telephone: storeSettings.contactPhoneInternational,
+      contactType: "customer service",
+      availableLanguage: "Portuguese",
+    },
+  };
+
   return (
     <html lang="pt">
       <body className={`${serif.variable} ${sans.variable}`}>
-        <StoreProvider>
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationSchema) }}
+        />
+        <StoreProvider products={publishedProducts}>
   <Header />
   {children}
   <Footer />

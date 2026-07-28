@@ -78,3 +78,9 @@ textarea {
     transition-duration: 0.01ms !important;
   }
 }
+body:has(.admin-shell) header,
+body:has(.admin-shell) footer,
+body:has(.admin-shell) [role="dialog"],
+body:has(.admin-shell) .music-player {
+  display: none;
+}

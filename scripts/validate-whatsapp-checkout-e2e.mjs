@@ -81,12 +81,13 @@ await page.getByLabel("Confirmo que os dados da encomenda estão corretos.").che
 const finalButton = page.getByRole("button", { name: "Finalizar encomenda no WhatsApp" });
 results.finalEnabled = await finalButton.isEnabled();
 await finalButton.click();
+await page.getByText("Encomenda preparada").waitFor({ state: "visible" });
 results.confirmation = (await page.locator("main").innerText()).includes("Encomenda preparada");
 results.orderNumber = /AM-\d{8}-[A-F0-9]{4}/.test(await page.locator("main").innerText());
 const openedUrls = await page.evaluate(() => window.__openedWhatsAppUrls);
 results.singleOpen = openedUrls.length === 1;
 const openedUrl = openedUrls[0] ?? "";
-results.validWhatsAppUrl = openedUrl.startsWith("https://wa.me/351912345678?text=");
+results.validWhatsAppUrl = openedUrl.startsWith("https://wa.me/351916303632?text=");
 const message = decodeURIComponent(openedUrl.split("?text=")[1] ?? "");
 results.completeMessage = [
   "ENCOMENDA",

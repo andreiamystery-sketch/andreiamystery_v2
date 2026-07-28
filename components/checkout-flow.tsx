@@ -20,6 +20,7 @@ import {
   buildWhatsAppOrderMessage,
   buildWhatsAppOrderUrl,
 } from "@/lib/orders/build-whatsapp-order-message";
+import { validateCheckoutProducts } from "@/app/checkout/actions";
 
 const steps = ["Carrinho", "Dados do cliente", "Entrega", "Revisão", "Finalização"];
 const emptyCustomer: CustomerDetails = {
@@ -110,7 +111,7 @@ export function CheckoutFlow() {
     setStep((current) => Math.min(steps.length - 1, current + 1));
   };
 
-  const finalizeOrder = () => {
+  const finalizeOrder = async () => {
     if (processingRef.current || !confirmed || !whatsappConfigured || cart.length === 0 || !deliveryIsValid) return;
     const nextErrors = validateCustomer(customer, delivery.method === "shipping");
     if (Object.keys(nextErrors).length > 0) {
@@ -123,6 +124,13 @@ export function CheckoutFlow() {
     processingRef.current = true;
     setProcessing(true);
     setSubmitError("");
+    const availability = await validateCheckoutProducts(cart.map((item) => item.stableId));
+    if (!availability.ok) {
+      setSubmitError("Um ou mais produtos deixaram de estar disponíveis. Atualiza a página para rever o carrinho.");
+      setProcessing(false);
+      processingRef.current = false;
+      return;
+    }
     const stableOrderNumber = orderNumber || createOrderNumber();
     const message = buildWhatsAppOrderMessage({
       orderNumber: stableOrderNumber,

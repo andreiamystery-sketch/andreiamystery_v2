@@ -3,21 +3,22 @@ import { Breadcrumb } from "@/components/breadcrumb";
 import { ProductActions } from "@/components/product-actions";
 import { ProductCard } from "@/components/product-card";
 import { ProductGallery } from "@/components/product-gallery";
-import { products } from "@/data/products";
 import { formatPrice } from "@/lib/format";
-import { getProductBySlug } from "@/lib/product-utils";
+import { catalogProducts } from "@/data/products";
+import { getPublishedProductBySlug, getPublishedProducts, toPublicProduct } from "@/lib/product-visibility";
 
 type ProductPageProps = {
   params: Promise<{ slug: string }>;
 };
 
 export function generateStaticParams() {
-  return products.map((product) => ({ slug: product.slug }));
+  return catalogProducts.map((product) => ({ slug: product.slug }));
 }
 
 export async function generateMetadata({ params }: ProductPageProps) {
   const { slug } = await params;
-  const product = getProductBySlug(slug);
+  const found = await getPublishedProductBySlug(slug);
+  const product = found ? toPublicProduct(found) : undefined;
 
   if (!product) return {};
 
@@ -29,7 +30,8 @@ export async function generateMetadata({ params }: ProductPageProps) {
 
 export default async function ProductPage({ params }: ProductPageProps) {
   const { slug } = await params;
-  const product = getProductBySlug(slug);
+  const products = (await getPublishedProducts()).map(toPublicProduct);
+  const product = products.find((item) => item.slug === slug);
 
   if (!product) notFound();
 

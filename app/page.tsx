@@ -5,16 +5,19 @@ import { ProductGrid } from "@/components/product-grid";
 import { ProductSection } from "@/components/product-section";
 import { SalesLocationsSection } from "@/components/sales-locations-section";
 import { TestimonialsSection } from "@/components/testimonials-section";
-import { bestSellerProducts, newProducts } from "@/data/products";
+import { getPublishedProducts, toPublicProduct } from "@/lib/product-visibility";
 import { publishedSalesLocations } from "@/data/sales-locations";
 import { publishedTestimonials } from "@/data/testimonials";
 
-export default function HomePage() {
+export default async function HomePage() {
+  const products = (await getPublishedProducts()).map(toPublicProduct);
+  const newProducts = products.filter((product) => product.novidade);
+  const bestSellerProducts = products.filter((product) => product.featured ?? product.isFeatured);
   return (
     <main>
       <Hero />
       <BenefitsStrip />
-      <ProductGrid />
+      <ProductGrid products={products} />
       <ProductSection
         id="novidades"
         eyebrow="Novidades"

@@ -1,11 +1,10 @@
 "use client";
 
-import { products } from "@/data/products";
 import { ProductCard } from "@/components/product-card";
 import { useStore } from "@/hooks/use-store";
 
 export function FavoritesSection() {
-  const { favorites } = useStore();
+  const { favorites, products } = useStore();
   const favoriteProducts = products.filter((product) => favorites.includes(product.id));
 
   if (favoriteProducts.length === 0) return null;

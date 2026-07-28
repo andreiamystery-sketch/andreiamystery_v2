@@ -5,7 +5,6 @@ import Link from "next/link";
 import { Check, Heart, ShoppingBag } from "lucide-react";
 import { useState } from "react";
 import { useStore } from "@/hooks/use-store";
-import { bestSellerProducts, newProducts } from "@/data/products";
 import { formatPrice } from "@/lib/format";
 import type { Product } from "@/types/product";
 
@@ -13,8 +12,8 @@ export function ProductCard({ product }: { product: Product }) {
   const { addToCart, favorites, toggleFavorite } = useStore();
   const favorite = favorites.includes(product.id);
   const [added, setAdded] = useState(false);
-  const isNew = newProducts.some((item) => item.stableId === product.stableId);
-  const isBestSeller = bestSellerProducts.some((item) => item.stableId === product.stableId);
+  const isNew = Boolean(product.novidade);
+  const isBestSeller = Boolean(product.featured ?? product.isFeatured);
 
   return (
     <article className="group border border-gold/15 bg-black-warm transition duration-500 hover:-translate-y-1 hover:border-gold/45">

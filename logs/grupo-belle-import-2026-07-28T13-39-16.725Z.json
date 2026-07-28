@@ -1,0 +1,35 @@
+{
+  "mode": "full",
+  "startedAt": "2026-07-28T13:30:02.941Z",
+  "finishedAt": "2026-07-28T13:39:16.725Z",
+  "productsFound": 1908,
+  "productsSynchronized": 1902,
+  "countsByCategory": {
+    "Colares": 595,
+    "Brincos": 532,
+    "Pulseiras": 474,
+    "AnÃ©is": 301
+  },
+  "skippedProducts": [
+    {
+      "skippedUrl": "https://grupobelle.com/15500-conjunto-12-carteirinhas-cortica.html",
+      "reason": "Fora das categorias da loja"
+    },
+    {
+      "skippedUrl": "https://grupobelle.com/15499-conjunto-12-carteirinhas-cortica.html",
+      "reason": "Fora das categorias da loja"
+    }
+  ],
+  "catalogProducts": 1907,
+  "imagesDownloaded": 3633,
+  "imagesReused": 1476,
+  "duplicateSkus": [],
+  "productsWithoutPrice": [
+    {
+      "supplierProductId": "6908",
+      "sku": "XLH6703",
+      "name": "Colar em aço estrela rosa GB",
+      "supplierUrl": "https://grupobelle.com/6908-37639-xlh6703-colar-em-aco-estrela-rosa-gb.html"
+    }
+  ]
+}

@@ -2,13 +2,13 @@
 
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import type { Product } from "@/types/product";
-import { products } from "@/data/products";
 
 export type CartLine = Product & { quantity: number; variantId?: string };
 type StoredCartItem = { productId: string; quantity: number; variantId?: string };
 type LegacyStoredCartItem = { productId?: number | string; id?: number; stableId?: string; quantity: number; variantId?: string };
 
 type StoreContextValue = {
+  products: Product[];
   cart: CartLine[];
   favorites: number[];
   addToCart: (product: Product, quantity?: number, variantId?: string) => void;
@@ -24,7 +24,7 @@ type StoreContextValue = {
 
 const StoreContext = createContext<StoreContextValue | null>(null);
 
-export function StoreProvider({ children }: { children: React.ReactNode }) {
+export function StoreProvider({ children, products }: { children: React.ReactNode; products: Product[] }) {
   const [cartItems, setCartItems] = useState<StoredCartItem[]>([]);
   const [favorites, setFavorites] = useState<number[]>([]);
   const [hydrated, setHydrated] = useState(false);
@@ -67,7 +67,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       }
     }
     setHydrated(true);
-  }, []);
+  }, [products]);
 
   useEffect(() => {
     if (hydrated) window.localStorage.setItem("andreas-cart", JSON.stringify(cartItems));
@@ -83,7 +83,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         const product = products.find((candidate) => candidate.stableId === item.productId);
         return product ? [{ ...product, quantity: item.quantity, variantId: item.variantId }] : [];
       }),
-    [cartItems],
+    [cartItems, products],
   );
 
   const value = useMemo<StoreContextValue>(() => {
@@ -137,6 +137,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     };
 
     return {
+      products,
       cart,
       favorites,
       addToCart,
@@ -149,7 +150,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       cartTotal: cart.reduce((sum, item) => sum + Math.round(item.price * 100) * item.quantity, 0) / 100,
       cartNotice,
     };
-  }, [cart, cartNotice, favorites]);
+  }, [cart, cartNotice, favorites, products]);
 
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;
 }

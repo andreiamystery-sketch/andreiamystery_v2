@@ -4,13 +4,14 @@ import Image from "next/image";
 import Link from "next/link";
 import { Search, X } from "lucide-react";
 import { useMemo, useState } from "react";
-import { products } from "@/data/products";
 import { formatPrice } from "@/lib/format";
 import { searchProducts } from "@/lib/search";
+import { useStore } from "@/hooks/use-store";
 
 export function SearchDrawer({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const { products } = useStore();
   const [query, setQuery] = useState("");
-  const results = useMemo(() => searchProducts(query).slice(0, 5), [query]);
+  const results = useMemo(() => searchProducts(query, products).slice(0, 5), [query, products]);
 
   return (
     <>

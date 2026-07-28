@@ -1,9 +1,10 @@
 import type { MetadataRoute } from "next";
-import { products } from "@/data/products";
+import { getPublishedProducts } from "@/lib/product-visibility";
 
 const baseUrl = "https://andreasmystery.pt";
 
-export default function sitemap(): MetadataRoute.Sitemap {
+export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
+  const products = await getPublishedProducts();
   return [
     {
       url: baseUrl,

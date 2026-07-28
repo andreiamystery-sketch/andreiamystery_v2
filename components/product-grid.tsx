@@ -2,18 +2,19 @@
 
 import { useMemo, useState } from "react";
 import { categories } from "@/data/products";
+import type { Product } from "@/types/product";
 import { Filters } from "@/components/filters";
 import { searchProducts } from "@/lib/search";
 import { ProductCard } from "@/components/product-card";
 import { SearchBar } from "@/components/search-bar";
 
-export function ProductGrid() {
+export function ProductGrid({ products }: { products: Product[] }) {
   const [category, setCategory] = useState("Todos");
   const [query, setQuery] = useState("");
 
   const filteredProducts = useMemo(() => {
-    return searchProducts(query).filter((product) => category === "Todos" || product.categoria === category);
-  }, [category, query]);
+    return searchProducts(query, products).filter((product) => category === "Todos" || product.categoria === category);
+  }, [category, query, products]);
   const orderedCategories = [categories[3], categories[2], categories[4], categories[1], categories[0]];
 
   return (

@@ -73,7 +73,7 @@ export function MusicPlayer() {
         onClick={toggleMusic}
         aria-label={playing ? "Desligar música" : "Ligar música"}
         title={playing ? "Desligar música" : "Ligar música"}
-        className="fixed bottom-6 right-6 z-50 flex h-12 w-12 items-center justify-center rounded-full border border-gold bg-obsidian text-gold shadow-lg transition hover:scale-110"
+        className="music-player fixed bottom-6 right-6 z-50 flex h-12 w-12 items-center justify-center rounded-full border border-gold bg-obsidian text-gold shadow-lg transition hover:scale-110"
       >
         <span aria-hidden="true">
           {playing ? "♪" : "♫"}
