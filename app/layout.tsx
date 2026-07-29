@@ -1,10 +1,14 @@
-import type { Metadata } from "next";
+﻿import type { Metadata } from "next";
 import { Cormorant_Garamond, Manrope } from "next/font/google";
 import "@/styles/globals.css";
+import { CookieConsent } from "@/components/cookie-consent";
 import { Footer } from "@/components/footer";
+import { I18nProvider } from "@/components/i18n/i18n-provider";
 import { Header } from "@/components/header";
 import { StoreProvider } from "@/hooks/use-store";
 import { MusicPlayer } from "@/components/music-player";
+import { companyConfig } from "@/config/company";
+import { seoConfig } from "@/config/seo";
 import { getPublishedProducts, toPublicProduct } from "@/lib/product-visibility";
 import { storeSettings } from "@/data/store-settings";
 
@@ -12,22 +16,20 @@ const serif = Cormorant_Garamond({ subsets: ["latin"], variable: "--font-serif",
 const sans = Manrope({ subsets: ["latin"], variable: "--font-sans", display: "swap" });
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://andreasmystery.pt"),
-  title: {
-    default: "Andrea's Mystery | Bijuteria Premium",
-    template: "%s | Andrea's Mystery",
-  },
-  description: "Loja online premium de bijuteria, com brincos, colares, pulseiras e aneis.",
-  keywords: ["Andrea's Mystery", "bijuteria premium", "joalharia", "brincos", "colares", "aneis", "pulseiras"],
+  metadataBase: new URL(seoConfig.siteUrl),
+  title: { default: seoConfig.defaultTitle, template: seoConfig.titleTemplate },
+  description: seoConfig.defaultDescription,
+  keywords: ["Andrea's Mystery", "bijuteria premium", "joalharia", "brincos", "colares", "anéis", "pulseiras"],
   openGraph: {
-    title: "Andrea's Mystery | Bijuteria Premium",
-    description: "Bijuteria premium com brilho controlado, detalhe e misterio.",
-    url: "https://andreasmystery.pt",
+    title: seoConfig.defaultTitle,
+    description: seoConfig.defaultDescription,
+    url: seoConfig.siteUrl,
     siteName: "Andrea's Mystery",
-    images: [{ url: "/images/hero/andreas-mystery-hero.jpg", width: 1920, height: 1080, alt: "Andrea's Mystery" }],
+    images: [{ url: seoConfig.defaultImage, width: 1920, height: 1080, alt: "Andrea's Mystery" }],
     locale: "pt_PT",
     type: "website",
   },
+  twitter: { card: "summary_large_image", title: seoConfig.defaultTitle, description: seoConfig.defaultDescription, images: [seoConfig.defaultImage] },
 };
 
 export default async function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
@@ -36,32 +38,36 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
     "@context": "https://schema.org",
     "@type": "Organization",
     name: storeSettings.storeName,
-    url: "https://andreasmystery.pt",
+    url: seoConfig.siteUrl,
     email: storeSettings.orderEmail,
     telephone: storeSettings.contactPhoneInternational,
-    sameAs: [storeSettings.instagramUrl],
-    contactPoint: {
-      "@type": "ContactPoint",
-      telephone: storeSettings.contactPhoneInternational,
-      contactType: "customer service",
-      availableLanguage: "Portuguese",
+    address: {
+      "@type": "PostalAddress",
+      streetAddress: companyConfig.addressLine1,
+      postalCode: companyConfig.postalCode,
+      addressLocality: companyConfig.city,
+      addressCountry: "PT",
     },
+    sameAs: [storeSettings.instagramUrl],
+    contactPoint: { "@type": "ContactPoint", telephone: storeSettings.contactPhoneInternational, contactType: "customer service", availableLanguage: "Portuguese" },
   };
 
   return (
     <html lang="pt">
       <body className={`${serif.variable} ${sans.variable}`}>
-        <script
-          type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationSchema) }}
-        />
+        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationSchema) }} />
         <StoreProvider products={publishedProducts}>
-  <Header />
-  {children}
-  <Footer />
-  <MusicPlayer />
-</StoreProvider>
+          <I18nProvider>
+            <Header />
+            {children}
+            <Footer />
+            <MusicPlayer />
+            <CookieConsent />
+          </I18nProvider>
+        </StoreProvider>
       </body>
     </html>
   );
 }
+
+

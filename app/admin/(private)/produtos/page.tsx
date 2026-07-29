@@ -1,31 +1,48 @@
-import { catalogProducts } from "@/data/products";
+﻿import { catalogProducts } from "@/data/products";
 import { requireAdmin } from "@/lib/admin-auth";
 import { getProductStateOverrides, resolveProductState } from "@/lib/product-visibility";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { AdminProductsTable, type AdminProduct } from "@/components/admin/admin-products-table";
+import { AdminProductTranslations, type AdminProductTranslation } from "@/components/admin/admin-product-translations";
 import { AdminQuickActions } from "@/components/admin/admin-quick-actions";
+import { activeLocales, type AppLocale } from "@/config/locales";
 import { logout } from "./actions";
 
 export const dynamic = "force-dynamic";
+
+type TranslationRow = { product_id: string; locale: AppLocale; name: string | null; description: string | null; };
 
 export default async function AdminProductsPage() {
   const admin = await requireAdmin();
   const overrides = await getProductStateOverrides();
   const products: AdminProduct[] = catalogProducts.map((product) => {
     const state = resolveProductState(product, overrides);
-
-    return {
-      id: String(product.id), name: product.nome, slug: product.slug, image: product.capa,
-      sku: product.sku, stableId: product.stableId, supplierId: product.supplierProductId,
-      category: product.categoria, supplier: product.supplier, price: product.price,
-      visible: state.isVisible, bestSeller: state.isBestSeller, newArrival: state.isNewArrival,
-    };
+    return { id: String(product.id), name: product.nome, slug: product.slug, image: product.capa, sku: product.sku, stableId: product.stableId, supplierId: product.supplierProductId, category: product.categoria, supplier: product.supplier, price: product.price, visible: state.isVisible, bestSeller: state.isBestSeller, newArrival: state.isNewArrival };
   });
   const visible = products.filter((p) => p.visible).length;
   const bestSellers = products.filter((p) => p.bestSeller).length;
   const newArrivals = products.filter((p) => p.newArrival).length;
-  const { data: audit } = await createAdminClient().from("admin_audit_log")
-    .select("id,action,product_ids,metadata,created_at").order("created_at", { ascending: false }).limit(20);
+  const supabase = createAdminClient();
+  const { data: translations } = await supabase.from("product_translations").select("product_id,locale,name,description");
+  const translationById = new Map<string, Partial<Record<AppLocale, { name: string; description: string }>>>();
+  for (const item of (translations ?? []) as TranslationRow[]) {
+    const current = translationById.get(String(item.product_id)) ?? {};
+    current[item.locale] = { name: item.name ?? "", description: item.description ?? "" };
+    translationById.set(String(item.product_id), current);
+  }
+  const translationProducts: AdminProductTranslation[] = catalogProducts.map((product) => {
+    const existing = translationById.get(String(product.id)) ?? {};
+    const productTranslations = activeLocales.reduce((accumulator, item) => {
+      accumulator[item.locale] = existing[item.locale] ?? {
+        name: item.code === "pt" ? product.nome : "",
+        description: item.code === "pt" ? product.descricao : "",
+      };
+      return accumulator;
+    }, {} as Record<AppLocale, { name: string; description: string }>);
+
+    return { id: String(product.id), name: product.nome, translations: productTranslations };
+  });
+  const { data: audit } = await supabase.from("admin_audit_log").select("id,action,product_ids,metadata,created_at").order("created_at", { ascending: false }).limit(20);
   const categories = [...new Set(products.map((p) => p.category))].sort();
 
   return (
@@ -43,17 +60,15 @@ export default async function AdminProductsPage() {
           <div className="border border-sky-300/20 p-4"><strong className="block text-2xl text-sky-300">{newArrivals}</strong><span className="text-sm text-white/50">Novos</span></div>
         </section>
         <AdminProductsTable products={products} />
+        <AdminProductTranslations products={translationProducts} />
         <AdminQuickActions categories={categories} />
         <section className="mt-8 border-t border-white/10 pt-7">
           <h2 className="font-serif text-2xl">20 alterações mais recentes</h2>
-          {!audit?.length ? <p className="mt-4 text-white/50">Ainda não existem alterações.</p> : <div className="mt-4 grid gap-2">
-            {audit.map((entry) => <article key={entry.id} className="flex flex-wrap justify-between gap-2 border border-white/10 p-3 text-sm">
-              <span><strong>{entry.action}</strong> · {entry.product_ids.length} produtos</span>
-              <time className="text-white/50">{new Intl.DateTimeFormat("pt-PT", { dateStyle: "short", timeStyle: "short" }).format(new Date(entry.created_at))}</time>
-            </article>)}
-          </div>}
+          {!audit?.length ? <p className="mt-4 text-white/50">Ainda não existem alterações.</p> : <div className="mt-4 grid gap-2">{audit.map((entry) => <article key={entry.id} className="flex flex-wrap justify-between gap-2 border border-white/10 p-3 text-sm"><span><strong>{entry.action}</strong> · {entry.product_ids.length} produtos</span><time className="text-white/50">{new Intl.DateTimeFormat("pt-PT", { dateStyle: "short", timeStyle: "short" }).format(new Date(entry.created_at))}</time></article>)}</div>}
         </section>
       </div>
     </main>
   );
 }
+
+

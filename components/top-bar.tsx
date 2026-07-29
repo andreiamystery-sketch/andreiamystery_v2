@@ -1,8 +1,22 @@
+﻿"use client";
+
+import { useI18n } from "@/components/i18n/i18n-provider";
 import { storeSettings } from "@/data/store-settings";
+import { formatPrice } from "@/lib/format";
+
+const freeShippingText = {
+  pt: "Portes grátis em compras acima de",
+  en: "Free shipping on orders over",
+  es: "Envío gratis en pedidos superiores a",
+  fr: "Livraison offerte dès",
+  de: "Kostenloser Versand ab",
+  zh: "订单满即可免配送费",
+} as const;
 
 export function TopBar() {
+  const { locale } = useI18n();
   const shippingMessage = storeSettings.freeShippingThreshold
-    ? `Portes grátis em compras acima de ${storeSettings.freeShippingThreshold}€`
+    ? `${freeShippingText[locale]} ${formatPrice(storeSettings.freeShippingThreshold, locale)}`
     : null;
   const centerMessage = storeSettings.topBar.centerMessage;
   const serviceMessage = storeSettings.topBar.serviceMessage;

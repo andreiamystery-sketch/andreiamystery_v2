@@ -1,3 +1,5 @@
+﻿import { paymentStatuses, type PaymentStatus } from "@/config/payments";
+
 export const orderStatuses = [
   "Pendente",
   "Confirmada",
@@ -7,6 +9,7 @@ export const orderStatuses = [
 ] as const;
 
 export type OrderStatus = (typeof orderStatuses)[number];
+export { paymentStatuses, type PaymentStatus };
 
 export type OrderItem = {
   product_id: string;
@@ -16,6 +19,14 @@ export type OrderItem = {
   quantity: number;
   unit_price: number;
   subtotal: number;
+};
+
+export type OrderStatusHistoryEntry = {
+  id: number;
+  previous_status: OrderStatus | null;
+  new_status: OrderStatus;
+  created_at: string;
+  changed_by: string | null;
 };
 
 export type StoreOrder = {
@@ -31,4 +42,24 @@ export type StoreOrder = {
   updated_at: string;
   email_sent_at: string | null;
   notification_error: string | null;
+  subtotal: number | null;
+  shipping_total: number;
+  delivery_method: string | null;
+  delivery_region: string | null;
+  delivery_country: string | null;
+  delivery_address: string | null;
+  delivery_postal_code: string | null;
+  delivery_city: string | null;
+  delivery_notes: string | null;
+  shipping_carrier: string | null;
+  shipping_estimate: string | null;
+  payment_method: string | null;
+  payment_status: PaymentStatus | null;
+  payment_reference: string | null;
+  paid_at: string | null;
+  payment_notes: string | null;
+  privacy_accepted: boolean;
+  customer_locale: string | null;
+  internal_note: string | null;
+  order_status_history?: OrderStatusHistoryEntry[] | null;
 };

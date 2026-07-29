@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useMemo, useState } from "react";
 import { categories } from "@/data/products";
@@ -7,37 +7,25 @@ import { Filters } from "@/components/filters";
 import { searchProducts } from "@/lib/search";
 import { ProductCard } from "@/components/product-card";
 import { SearchBar } from "@/components/search-bar";
+import { useI18n } from "@/components/i18n/i18n-provider";
 
 export function ProductGrid({ products }: { products: Product[] }) {
   const [category, setCategory] = useState("Todos");
   const [query, setQuery] = useState("");
-
-  const filteredProducts = useMemo(() => {
-    return searchProducts(query, products).filter((product) => category === "Todos" || product.categoria === category);
-  }, [category, query, products]);
+  const { dictionary: t } = useI18n();
+  const filteredProducts = useMemo(() => searchProducts(query, products).filter((product) => category === "Todos" || product.categoria === category), [category, query, products]);
   const orderedCategories = [categories[3], categories[2], categories[4], categories[1], categories[0]];
 
   return (
     <section id="colecao" className="bg-obsidian px-5 py-20 md:px-10 lg:py-28">
       <div className="mx-auto max-w-7xl">
         <div className="mx-auto max-w-3xl text-center">
-          <p className="eyebrow">Coleção</p>
-          <h2 className="mt-4 font-serif text-[clamp(2.8rem,6vw,5rem)] leading-none text-ivory">Descubra a sua próxima joia</h2>
-          <p className="mt-5 font-serif text-lg leading-relaxed text-smoke">
-            Pecas com brilho delicado, criadas para elevar o quotidiano e finalizar looks de ocasiao.
-          </p>
+          <p className="eyebrow">{t.home.collectionEyebrow}</p>
+          <h2 className="mt-4 font-serif text-[clamp(2.8rem,6vw,5rem)] leading-none text-ivory">{t.home.collectionTitle}</h2>
+          <p className="mt-5 font-serif text-lg leading-relaxed text-smoke">{t.home.collectionDescription}</p>
         </div>
-
-        <div className="mx-auto mt-12 flex max-w-6xl flex-col items-center gap-8">
-          <Filters categories={orderedCategories} active={category} onChange={setCategory} />
-          <SearchBar value={query} onChange={setQuery} />
-        </div>
-
-        <div className="mt-12 grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {filteredProducts.map((product) => (
-            <ProductCard key={product.id} product={product} />
-          ))}
-        </div>
+        <div className="mx-auto mt-12 flex max-w-6xl flex-col items-center gap-8"><Filters categories={orderedCategories} active={category} onChange={setCategory} /><SearchBar value={query} onChange={setQuery} /></div>
+        <div className="mt-12 grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">{filteredProducts.map((product) => <ProductCard key={product.id} product={product} />)}</div>
       </div>
     </section>
   );

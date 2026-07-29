@@ -1,4 +1,4 @@
-"use server";
+﻿"use server";
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
@@ -65,11 +65,11 @@ async function performUpdate(
     patchEntries.length !== 1 ||
     typeof patchEntries[0]?.[1] !== "boolean"
   ) {
-    return { ok: false, updated: 0, message: "Dados inválidos." };
+    return { ok: false, updated: 0, message: "Dados invÃ¡lidos." };
   }
 
   if (!Array.isArray(rawIds)) {
-    return { ok: false, updated: 0, message: "Dados inválidos." };
+    return { ok: false, updated: 0, message: "Dados invÃ¡lidos." };
   }
 
   const ids = [
@@ -85,13 +85,13 @@ async function performUpdate(
   }
 
   if (ids.length > MAX_IDS) {
-    return { ok: false, updated: 0, message: `O limite por operação é ${MAX_IDS} produtos.` };
+    return { ok: false, updated: 0, message: `O limite por operaÃ§Ã£o Ã© ${MAX_IDS} produtos.` };
   }
 
   const productById = new Map(catalogProducts.map((product) => [String(product.id), product]));
 
   if (ids.some((id) => !productById.has(id))) {
-    return { ok: false, updated: 0, message: "A seleção contém IDs de produto inexistentes." };
+    return { ok: false, updated: 0, message: "A seleÃ§Ã£o contÃ©m IDs de produto inexistentes." };
   }
 
   const states = await getProductStateOverrides();
@@ -124,7 +124,7 @@ async function performUpdate(
       return {
         ok: false,
         updated,
-        message: "Não foi possível atualizar todos os produtos.",
+        message: "NÃ£o foi possÃ­vel atualizar todos os produtos.",
       };
     }
 
@@ -157,19 +157,19 @@ async function performUpdate(
 export async function setProductsVisibility(productIds: unknown, value: unknown) {
   return typeof value === "boolean"
     ? performUpdate(productIds, { isVisible: value }, value ? "publish" : "hide", {})
-    : { ok: false, updated: 0, message: "Dados inválidos." };
+    : { ok: false, updated: 0, message: "Dados invÃ¡lidos." };
 }
 
 export async function setProductsBestSeller(productIds: unknown, value: unknown) {
   return typeof value === "boolean"
     ? performUpdate(productIds, { isBestSeller: value }, value ? "best_seller_add" : "best_seller_remove", {})
-    : { ok: false, updated: 0, message: "Dados inválidos." };
+    : { ok: false, updated: 0, message: "Dados invÃ¡lidos." };
 }
 
 export async function setProductsNewArrival(productIds: unknown, value: unknown) {
   return typeof value === "boolean"
     ? performUpdate(productIds, { isNewArrival: value }, value ? "new_arrival_add" : "new_arrival_remove", {})
-    : { ok: false, updated: 0, message: "Dados inválidos." };
+    : { ok: false, updated: 0, message: "Dados invÃ¡lidos." };
 }
 
 async function setFilteredState(
@@ -185,19 +185,19 @@ async function setFilteredState(
 export async function setFilteredProductsVisibility(filters: AdminFilters, value: unknown) {
   return typeof value === "boolean"
     ? setFilteredState(filters, { isVisible: value }, value ? "publish_filtered" : "hide_filtered")
-    : { ok: false, updated: 0, message: "Dados inválidos." };
+    : { ok: false, updated: 0, message: "Dados invÃ¡lidos." };
 }
 
 export async function setFilteredProductsBestSeller(filters: AdminFilters, value: unknown) {
   return typeof value === "boolean"
     ? setFilteredState(filters, { isBestSeller: value }, value ? "best_seller_add_filtered" : "best_seller_remove_filtered")
-    : { ok: false, updated: 0, message: "Dados inválidos." };
+    : { ok: false, updated: 0, message: "Dados invÃ¡lidos." };
 }
 
 export async function setFilteredProductsNewArrival(filters: AdminFilters, value: unknown) {
   return typeof value === "boolean"
     ? setFilteredState(filters, { isNewArrival: value }, value ? "new_arrival_add_filtered" : "new_arrival_remove_filtered")
-    : { ok: false, updated: 0, message: "Dados inválidos." };
+    : { ok: false, updated: 0, message: "Dados invÃ¡lidos." };
 }
 
 export async function logout() {
@@ -205,4 +205,45 @@ export async function logout() {
   const supabase = await createClient();
   await supabase.auth.signOut();
   redirect("/admin/login");
+}
+
+export async function saveProductTranslations(productId: unknown, translations: unknown) {
+  const admin = await requireAdmin();
+  const id = typeof productId === "string" ? productId : "";
+  const productExists = catalogProducts.some((product) => String(product.id) === id);
+
+  if (!id || !productExists || !translations || typeof translations !== "object") {
+    return { ok: false, message: "Produto ou traduções inválidas." };
+  }
+
+  const input = translations as Record<string, { name?: unknown; description?: unknown }>;
+  const locales = ["pt-PT", "en-GB", "es-ES", "fr-FR", "de-DE", "zh-CN"];
+  const now = new Date().toISOString();
+  const clean = (value: unknown, max = 4000) =>
+    typeof value === "string" ? value.trim().slice(0, max) || null : null;
+
+  const rows = locales.map((locale) => ({
+    product_id: id,
+    locale,
+    name: clean(input[locale]?.name, 240),
+    description: clean(input[locale]?.description),
+    updated_at: now,
+    updated_by: admin.id,
+  }));
+
+  const { error } = await createAdminClient()
+    .from("product_translations")
+    .upsert(rows, { onConflict: "product_id,locale" });
+
+  if (error) {
+    return {
+      ok: false,
+      message: "Não foi possível guardar traduções. Confirma a migration product-translations.sql.",
+    };
+  }
+
+  revalidatePath("/admin/produtos");
+  revalidatePath("/[locale]", "page");
+  revalidatePath("/[locale]/produto/[slug]", "page");
+  return { ok: true, message: "Traduções guardadas." };
 }

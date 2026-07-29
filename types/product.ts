@@ -1,6 +1,21 @@
-export type Category = "Anéis" | "Brincos" | "Colares" | "Pulseiras";
+﻿export type Category = "Anéis" | "Brincos" | "Colares" | "Pulseiras";
 
-export type Product = {
+export type ProductTranslations = {
+  name_pt?: string;
+  name_en?: string | null;
+  name_es?: string | null;
+  name_fr?: string | null;
+  name_de?: string | null;
+  name_zh?: string | null;
+  description_pt?: string;
+  description_en?: string | null;
+  description_es?: string | null;
+  description_fr?: string | null;
+  description_de?: string | null;
+  description_zh?: string | null;
+};
+
+export type Product = ProductTranslations & {
   id: number;
   slug: string;
   nome: string;
@@ -37,3 +52,4 @@ export type CategoryFilter = {
   description: string;
   imagem?: string;
 };
+
