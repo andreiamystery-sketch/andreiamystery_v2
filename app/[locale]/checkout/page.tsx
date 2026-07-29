@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { CheckoutFlow } from "@/components/checkout-flow";
 import { canonicalUrl, localizedAlternates } from "@/lib/i18n/seo";
 import { getDictionary, isLocale } from "@/lib/i18n/messages";
+import { isPaymentsTestModeEnabled } from "@/lib/payments-test-mode";
 
 type PageProps = { params: Promise<{ locale: string }> };
 
@@ -17,8 +18,9 @@ export default async function LocalizedCheckoutPage({ params }: PageProps) {
   const { locale } = await params;
   if (!isLocale(locale)) notFound();
   const t = getDictionary(locale);
-  return <main className="px-5 py-12 md:px-10 lg:py-20"><div className="mx-auto mb-10 max-w-5xl"><p className="eyebrow">{t.checkout.eyebrow}</p><h1 className="mt-4 font-serif text-5xl leading-none md:text-7xl">{t.checkout.title}</h1></div><CheckoutFlow /></main>;
+  return <main className="px-5 py-12 md:px-10 lg:py-20"><div className="mx-auto mb-10 max-w-5xl"><p className="eyebrow">{t.checkout.eyebrow}</p><h1 className="mt-4 font-serif text-5xl leading-none md:text-7xl">{t.checkout.title}</h1></div><CheckoutFlow paymentsTestMode={isPaymentsTestModeEnabled()} /></main>;
 }
+
 
 
 

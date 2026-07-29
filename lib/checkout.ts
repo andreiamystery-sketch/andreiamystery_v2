@@ -55,9 +55,9 @@ export function validateDelivery(details: DeliveryDetails) {
   return errors;
 }
 
-export function validatePayment(details: PaymentDetails) {
+export function validatePayment(details: PaymentDetails, options: { testMode?: boolean } = {}) {
   const errors: Partial<Record<keyof PaymentDetails, string>> = {};
-  if (!isEnabledPaymentMethod(details.method)) errors.method = "Seleciona um método de pagamento disponível.";
+  if (!isEnabledPaymentMethod(details.method, options)) errors.method = "Seleciona um método de pagamento disponível.";
   if (!details.privacyAccepted) errors.privacyAccepted = "Confirma a aceitação da política de privacidade.";
   return errors;
 }
@@ -99,6 +99,7 @@ export function createOrderNumber(now = new Date()) {
   return `AM-${date}-${suffix}`;
 }
 
-export function normalizePaymentMethod(value: unknown): PaymentMethodId {
-  return typeof value === "string" && isEnabledPaymentMethod(value) ? value : paymentConfig.defaultMethod;
+export function normalizePaymentMethod(value: unknown, options: { testMode?: boolean } = {}) {
+  return typeof value === "string" && isEnabledPaymentMethod(value, options) ? value : paymentConfig.defaultMethod;
 }
+

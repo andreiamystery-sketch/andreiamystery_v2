@@ -8,7 +8,7 @@ import { orderStatuses, paymentStatuses, type OrderStatus, type PaymentStatus, t
 
 export type OrderActionResult = { ok: boolean; message: string };
 
-const orderSelect = "id,order_number,customer_name,phone,email,items,total,status,created_at,updated_at,email_sent_at,notification_error,internal_note,subtotal,shipping_total,delivery_method,delivery_region,delivery_country,delivery_address,delivery_postal_code,delivery_city,delivery_notes,shipping_carrier,shipping_estimate,payment_method,payment_status,payment_reference,paid_at,payment_notes,privacy_accepted,customer_locale";
+const orderSelect = "id,order_number,customer_name,phone,email,items,total,status,created_at,updated_at,email_sent_at,notification_error,internal_notes,subtotal,shipping_total,delivery_method,delivery_region,delivery_country,delivery_address,delivery_postal_code,delivery_city,delivery_notes,shipping_carrier,shipping_estimate,payment_method,payment_status,payment_reference,paid_at,payment_notes,stripe_checkout_session_id,stripe_payment_intent_id,stripe_payment_method,stripe_last_event_id,privacy_accepted,customer_locale";
 
 export async function updateOrderStatus(orderId: unknown, status: unknown): Promise<OrderActionResult> {
   await requireAdmin();
@@ -62,7 +62,7 @@ export async function updateOrderInternalNote(orderId: unknown, note: unknown): 
 
   if (!Number.isInteger(id) || id < 1) return { ok: false, message: "Encomenda inválida." };
 
-  const { error } = await createAdminClient().from("orders").update({ internal_note: internalNote || null, updated_at: new Date().toISOString() }).eq("id", id);
+  const { error } = await createAdminClient().from("orders").update({ internal_notes: internalNote || null, updated_at: new Date().toISOString() }).eq("id", id);
   if (error) return { ok: false, message: "Não foi possível guardar a nota interna." };
 
   revalidatePath("/admin/encomendas");
@@ -90,3 +90,6 @@ export async function resendOrderNotification(orderId: unknown): Promise<OrderAc
   revalidatePath("/admin/encomendas");
   return { ok: false, message: "Não foi possível reenviar a notificação." };
 }
+
+
+

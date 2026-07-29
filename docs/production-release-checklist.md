@@ -8,7 +8,7 @@ Executar no SQL Editor do Supabase, por esta ordem:
 
 1. `supabase/admin-orders-management.sql`
    - cria `order_status_history`;
-   - adiciona `orders.internal_note`;
+   - adiciona `orders.internal_notes`;
    - adiciona constraints de estados;
    - restringe acesso direto ao histórico.
 
@@ -80,3 +80,4 @@ npm run build
 ```
 
 Antes de publicar, executar novamente depois de aplicar migrations e preencher textos legais.
+

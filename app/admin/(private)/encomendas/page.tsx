@@ -5,7 +5,7 @@ import { AdminOrders } from "@/components/admin/admin-orders";
 
 export const dynamic = "force-dynamic";
 
-const orderSelect = "id,order_number,customer_name,phone,email,items,total,status,created_at,updated_at,email_sent_at,notification_error,internal_note,subtotal,shipping_total,delivery_method,delivery_region,delivery_country,delivery_address,delivery_postal_code,delivery_city,delivery_notes,shipping_carrier,shipping_estimate,payment_method,payment_status,payment_reference,paid_at,payment_notes,privacy_accepted,customer_locale,order_status_history(id,previous_status,new_status,created_at,changed_by)";
+const orderSelect = "id,order_number,customer_name,phone,email,items,total,status,created_at,updated_at,email_sent_at,notification_error,internal_notes,subtotal,shipping_total,delivery_method,delivery_region,delivery_country,delivery_address,delivery_postal_code,delivery_city,delivery_notes,shipping_carrier,shipping_estimate,payment_method,payment_status,payment_reference,paid_at,payment_notes,stripe_checkout_session_id,stripe_payment_intent_id,stripe_payment_method,stripe_last_event_id,privacy_accepted,customer_locale,order_status_history(id,previous_status,new_status,created_at,changed_by)";
 
 export default async function AdminOrdersPage() {
   await requireAdmin();
@@ -30,3 +30,6 @@ export default async function AdminOrdersPage() {
     </section>
   );
 }
+
+
+

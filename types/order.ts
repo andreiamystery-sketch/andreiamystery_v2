@@ -58,8 +58,15 @@ export type StoreOrder = {
   payment_reference: string | null;
   paid_at: string | null;
   payment_notes: string | null;
+  stripe_checkout_session_id: string | null;
+  stripe_payment_intent_id: string | null;
+  stripe_payment_method: string | null;
+  stripe_last_event_id: string | null;
   privacy_accepted: boolean;
   customer_locale: string | null;
-  internal_note: string | null;
+  internal_notes: string | null;
   order_status_history?: OrderStatusHistoryEntry[] | null;
 };
+
+
+

@@ -134,7 +134,7 @@ function OrderDrawer({ order, copiedId, pending, noteDraft, onNoteChange, onClos
         <div className="overflow-y-auto p-5 sm:p-7">
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             <Info label="Nome" value={order.customer_name} /><Info label="Telefone" value={order.phone} /><Info label="Email" value={order.email ?? "Sem email"} />
-            <Info label="Idioma" value={order.customer_locale ?? "pt"} /><Info label="Estado" value={<span className={badge(statusStyles, order.status)}>{order.status}</span>} /><Info label="Pagamento" value={<span className={badge(paymentStyles, order.payment_status)}>{order.payment_status ?? "-"}</span>} />
+            <Info label="Idioma" value={order.customer_locale ?? "pt"} /><Info label="Estado" value={<span className={badge(statusStyles, order.status)}>{order.status}</span>} /><Info label="Pagamento" value={<span className={badge(paymentStyles, order.payment_status)}>{order.payment_status ?? "-"}</span>} /><Info label="Método Stripe" value={order.stripe_payment_method ?? "-"} />
             <Info label="Método de pagamento" value={order.payment_method ?? "-"} /><Info label="Referência" value={order.payment_reference ?? "-"} /><Info label="Pago em" value={order.paid_at ? date.format(new Date(order.paid_at)) : "-"} />
             <Info label="Entrega" value={order.delivery_method ?? "-"} /><Info label="Destino" value={[order.delivery_country, order.delivery_region].filter(Boolean).join(" · ")} /><Info label="Transportadora" value={order.shipping_carrier ?? "-"} />
             <Info label="Prazo estimado" value={order.shipping_estimate ?? "-"} /><Info label="Data de criação" value={date.format(new Date(order.created_at))} /><Info label="Última atualização" value={date.format(new Date(order.updated_at))} />
@@ -170,7 +170,7 @@ export function AdminOrders({ orders }: { orders: StoreOrder[] }) {
   const [pending, startTransition] = useTransition();
   const selectedOrder = useMemo(() => orders.find((order) => order.id === selectedOrderId) ?? null, [orders, selectedOrderId]);
 
-  useEffect(() => { setNoteDraft(selectedOrder?.internal_note ?? ""); }, [selectedOrder]);
+  useEffect(() => { setNoteDraft(selectedOrder?.internal_notes ?? ""); }, [selectedOrder]);
 
   const paymentMethods = useMemo(() => [...new Set(orders.map((order) => order.payment_method).filter(Boolean))] as string[], [orders]);
   const regions = useMemo(() => [...new Set(orders.map((order) => order.delivery_region || order.delivery_country).filter(Boolean))] as string[], [orders]);
@@ -213,3 +213,5 @@ export function AdminOrders({ orders }: { orders: StoreOrder[] }) {
     <OrderDrawer order={selectedOrder} copiedId={copiedId} pending={pending} noteDraft={noteDraft} onNoteChange={setNoteDraft} onClose={() => setSelectedOrderId(null)} onCopy={copy} onPrint={print} onResendEmail={resendEmail} onSaveNote={saveNote} onStatusChange={changeStatus} onPaymentStatusChange={changePaymentStatus} />
   </div>;
 }
+
+

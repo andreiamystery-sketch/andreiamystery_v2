@@ -46,5 +46,5 @@ alter table public.orders add constraint orders_payment_status_check check (
 
 alter table public.orders drop constraint if exists orders_customer_locale_check;
 alter table public.orders add constraint orders_customer_locale_check check (
-  customer_locale in ('pt', 'en', 'es', 'fr')
+  customer_locale in ('pt', 'en', 'es', 'fr', 'de', 'zh')
 );

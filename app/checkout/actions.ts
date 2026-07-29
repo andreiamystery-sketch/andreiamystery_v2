@@ -10,14 +10,16 @@ import {
   type DeliveryDetails,
   type PaymentDetails,
 } from "@/lib/checkout";
-import { paymentConfig } from "@/config/payments";
+import { getStripeCheckoutPaymentMethod, paymentConfig, stripeTestPaymentMethodId } from "@/config/payments";
 import { defaultLocale, type LocaleCode } from "@/config/locales";
 import { sendOrderNotification } from "@/lib/orders/send-order-notification";
+import { isPaymentsTestModeEnabled } from "@/lib/payments-test-mode";
+import { createStripeCheckoutSession } from "@/lib/stripe/server";
 import { getPublishedProducts } from "@/lib/product-visibility";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { OrderItem, StoreOrder } from "@/types/order";
 
-const orderSelect = "id,order_number,customer_name,phone,email,items,total,status,created_at,updated_at,email_sent_at,notification_error,internal_note,subtotal,shipping_total,delivery_method,delivery_region,delivery_country,delivery_address,delivery_postal_code,delivery_city,delivery_notes,shipping_carrier,shipping_estimate,payment_method,payment_status,payment_reference,paid_at,payment_notes,privacy_accepted,customer_locale";
+const orderSelect = "id,order_number,customer_name,phone,email,items,total,status,created_at,updated_at,email_sent_at,notification_error,internal_notes,subtotal,shipping_total,delivery_method,delivery_region,delivery_country,delivery_address,delivery_postal_code,delivery_city,delivery_notes,shipping_carrier,shipping_estimate,payment_method,payment_status,payment_reference,paid_at,payment_notes,stripe_checkout_session_id,stripe_payment_intent_id,stripe_payment_method,stripe_last_event_id,privacy_accepted,customer_locale";
 
 type CheckoutInput = {
   customer?: { name?: unknown; phone?: unknown; email?: unknown };
@@ -30,7 +32,7 @@ type CheckoutInput = {
 type RequestedItem = { stableId: string; quantity: number };
 
 export type CheckoutResult =
-  | { ok: true; orderNumber: string }
+  | { ok: true; orderNumber: string; checkoutUrl?: string }
   | { ok: false; message: string };
 
 function parseItems(value: unknown): RequestedItem[] | null {
@@ -62,15 +64,21 @@ function normalizeDelivery(input: CheckoutInput["delivery"]): DeliveryDetails {
   };
 }
 
-function normalizePayment(input: CheckoutInput["payment"]): PaymentDetails {
+function normalizePayment(input: CheckoutInput["payment"], testMode: boolean): PaymentDetails {
   return {
-    method: normalizePaymentMethod(input?.method),
+    method: normalizePaymentMethod(input?.method, { testMode }),
     privacyAccepted: input?.privacyAccepted === true,
   };
 }
 
 function normalizeLocale(value: unknown): LocaleCode {
-  return value === "en" || value === "es" || value === "fr" || value === "pt" ? value : defaultLocale;
+  return value === "pt" || value === "en" || value === "es" || value === "fr" || value === "de" || value === "zh" ? value : defaultLocale;
+}
+
+function stripePaymentNote(method: string) {
+  if (method === stripeTestPaymentMethodId) return "Pagamento de teste por cartão via Stripe Checkout. Aguarda confirmação por webhook.";
+  if (method === "MB Way") return "Pagamento de teste por MB Way via Stripe Checkout. Aguarda confirmação por webhook.";
+  return "Dados bancários enviados após confirmação.";
 }
 
 export async function createCheckoutOrder(input: CheckoutInput): Promise<CheckoutResult> {
@@ -88,9 +96,15 @@ export async function createCheckoutOrder(input: CheckoutInput): Promise<Checkou
     return { ok: false, message: "Confirma os dados de entrega introduzidos." };
   }
 
-  const payment = normalizePayment(input.payment);
-  if (Object.keys(validatePayment(payment)).length > 0) {
+  const paymentsTestMode = isPaymentsTestModeEnabled();
+  const payment = normalizePayment(input.payment, paymentsTestMode);
+  if (Object.keys(validatePayment(payment, { testMode: paymentsTestMode })).length > 0) {
     return { ok: false, message: "Confirma o método de pagamento e a política de privacidade." };
+  }
+
+  const stripePaymentMethod = getStripeCheckoutPaymentMethod(payment.method);
+  if (stripePaymentMethod && !paymentsTestMode) {
+    return { ok: false, message: "Este pagamento automático só está disponível em modo de teste." };
   }
 
   const requestedItems = parseItems(input.items);
@@ -155,7 +169,8 @@ export async function createCheckoutOrder(input: CheckoutInput): Promise<Checkou
       payment_status: paymentConfig.defaultStatus,
       payment_reference: null,
       paid_at: null,
-      payment_notes: payment.method === "MB Way" ? `MB Way ${paymentConfig.mbWayPhone}` : "Dados bancários enviados após confirmação.",
+      payment_notes: stripePaymentNote(payment.method),
+      stripe_payment_method: stripePaymentMethod,
       privacy_accepted: payment.privacyAccepted,
       customer_locale: normalizeLocale(input.locale),
       status: "Pendente",
@@ -177,6 +192,37 @@ export async function createCheckoutOrder(input: CheckoutInput): Promise<Checkou
   }
 
   const order = data as StoreOrder;
+
+  if (stripePaymentMethod) {
+    try {
+      const session = await createStripeCheckoutSession({
+        orderId: order.id,
+        orderNumber,
+        locale: normalizeLocale(input.locale),
+        items: storedItems,
+        shippingTotal,
+        total,
+        stripePaymentMethod,
+      });
+
+      await supabase
+        .from("orders")
+        .update({
+          stripe_checkout_session_id: session.id,
+          stripe_payment_intent_id: typeof session.payment_intent === "string" ? session.payment_intent : null,
+          stripe_payment_method: stripePaymentMethod,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", order.id);
+
+      if (!session.url) throw new Error("Stripe Checkout não devolveu URL.");
+      return { ok: true, orderNumber, checkoutUrl: session.url };
+    } catch (stripeError) {
+      console.error("Stripe Checkout session failed", stripeError);
+      return { ok: false, message: "Não foi possível iniciar o pagamento de teste Stripe. Confirma as chaves de teste e o método selecionado." };
+    }
+  }
+
   const notification = await sendOrderNotification(order);
   if (notification.ok) {
     await supabase.from("orders").update({ email_sent_at: new Date().toISOString(), notification_error: null }).eq("id", order.id);

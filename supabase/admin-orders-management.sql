@@ -11,7 +11,7 @@ create table if not exists public.order_status_history (
 );
 
 alter table public.orders
-  add column if not exists internal_note text null;
+  add column if not exists internal_notes text null;
 
 alter table public.order_status_history
   add column if not exists changed_by text null;
@@ -32,3 +32,4 @@ alter table public.order_status_history enable row level security;
 
 -- Histórico e notas são geridos apenas pelas Server Actions com service role.
 revoke all on table public.order_status_history from anon, authenticated;
+
