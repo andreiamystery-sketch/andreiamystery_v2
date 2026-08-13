@@ -207,43 +207,9 @@ export async function logout() {
   redirect("/admin/login");
 }
 
-export async function saveProductTranslations(productId: unknown, translations: unknown) {
-  const admin = await requireAdmin();
-  const id = typeof productId === "string" ? productId : "";
-  const productExists = catalogProducts.some((product) => String(product.id) === id);
-
-  if (!id || !productExists || !translations || typeof translations !== "object") {
-    return { ok: false, message: "Produto ou traduções inválidas." };
-  }
-
-  const input = translations as Record<string, { name?: unknown; description?: unknown }>;
-  const locales = ["pt-PT", "en-GB", "es-ES", "fr-FR", "de-DE", "zh-CN"];
-  const now = new Date().toISOString();
-  const clean = (value: unknown, max = 4000) =>
-    typeof value === "string" ? value.trim().slice(0, max) || null : null;
-
-  const rows = locales.map((locale) => ({
-    product_id: id,
-    locale,
-    name: clean(input[locale]?.name, 240),
-    description: clean(input[locale]?.description),
-    updated_at: now,
-    updated_by: admin.id,
-  }));
-
-  const { error } = await createAdminClient()
-    .from("product_translations")
-    .upsert(rows, { onConflict: "product_id,locale" });
-
-  if (error) {
-    return {
-      ok: false,
-      message: "Não foi possível guardar traduções. Confirma a migration product-translations.sql.",
-    };
-  }
-
-  revalidatePath("/admin/produtos");
-  revalidatePath("/[locale]", "page");
-  revalidatePath("/[locale]/produto/[slug]", "page");
-  return { ok: true, message: "Traduções guardadas." };
+export async function saveProductTranslations(_productId?: unknown, _translations?: unknown) {
+  void _productId;
+  void _translations;
+  await requireAdmin();
+  return { ok: false, message: "As traduções de produto são carregadas do catálogo local em data/product-translations.ts." };
 }

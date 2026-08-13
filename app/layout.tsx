@@ -1,6 +1,7 @@
 ﻿import type { Metadata } from "next";
 import { Cormorant_Garamond, Manrope } from "next/font/google";
 import "@/styles/globals.css";
+import { ChatbotWidget } from "@/components/chatbot/chatbot-widget";
 import { CookieConsent } from "@/components/cookie-consent";
 import { Footer } from "@/components/footer";
 import { I18nProvider } from "@/components/i18n/i18n-provider";
@@ -49,7 +50,7 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
       addressCountry: "PT",
     },
     sameAs: [storeSettings.instagramUrl],
-    contactPoint: { "@type": "ContactPoint", telephone: storeSettings.contactPhoneInternational, contactType: "customer service", availableLanguage: "Portuguese" },
+    contactPoint: { "@type": "ContactPoint", telephone: storeSettings.contactPhoneInternational, contactType: "customer service", availableLanguage: ["Portuguese", "English", "Spanish", "French", "German", "Chinese"] },
   };
 
   return (
@@ -63,6 +64,7 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
             <Footer />
             <MusicPlayer />
             <CookieConsent />
+            <ChatbotWidget />
           </I18nProvider>
         </StoreProvider>
       </body>

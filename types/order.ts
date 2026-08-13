@@ -41,6 +41,8 @@ export type StoreOrder = {
   created_at: string;
   updated_at: string;
   email_sent_at: string | null;
+  customer_email_sent_at?: string | null;
+  payment_email_sent_at?: string | null;
   notification_error: string | null;
   subtotal: number | null;
   shipping_total: number;
@@ -62,6 +64,7 @@ export type StoreOrder = {
   stripe_payment_intent_id: string | null;
   stripe_payment_method: string | null;
   stripe_last_event_id: string | null;
+  inventory_decremented_at?: string | null;
   privacy_accepted: boolean;
   customer_locale: string | null;
   internal_notes: string | null;

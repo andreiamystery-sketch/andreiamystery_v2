@@ -8,11 +8,18 @@
     "start": "next start",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
-    "test:checkout": "node scripts/validate-whatsapp-checkout-e2e.mjs",
-    "test:checkout:unconfigured": "node scripts/validate-whatsapp-unconfigured.mjs",
-    "import:grupo-belle": "node scripts/import-grupo-belle.mjs"
+    "test:checkout": "node scripts/validate-production-readiness.mjs",
+    "test:checkout:unconfigured": "node scripts/validate-production-readiness.mjs",
+    "import:grupo-belle": "node scripts/import-grupo-belle.mjs",
+    "creative:generate": "node scripts/generate-creative-engine.mjs",
+    "branding:generate": "node scripts/generate-creative-engine.mjs",
+    "maison:generate": "node scripts/generate-maison-engine.mjs",
+    "instagram:studio": "node scripts/start-instagram-studio.mjs",
+    "instagram:launch:generate": "node scripts/generate-instagram-launch.mjs && node scripts/rebuild-instagram-launch-premium.mjs",
+    "instagram:launch:reels:render": "node scripts/render-instagram-launch-reels-mp4.mjs"
   },
   "dependencies": {
+    "@google/genai": "^2.17.0",
     "@supabase/ssr": "^0.12.3",
     "@supabase/supabase-js": "^2.110.9",
     "@types/node": "^22.10.0",
@@ -24,6 +31,7 @@
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "resend": "^6.18.1",
+    "sharp": "^0.34.5",
     "stripe": "^22.3.2",
     "typescript": "^5.7.2"
   },
@@ -31,6 +39,9 @@
     "autoprefixer": "^10.4.20",
     "eslint": "^9.17.0",
     "eslint-config-next": "^16.2.10",
+    "ffmpeg-static": "^5.3.0",
+    "ffprobe-static": "^3.1.0",
+    "playwright": "^1.62.1",
     "postcss": "^8.4.49",
     "tailwindcss": "^3.4.17"
   }

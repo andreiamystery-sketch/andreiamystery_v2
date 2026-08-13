@@ -10,5 +10,5 @@ export default defineConfig([
       "react-hooks/set-state-in-effect": "off",
     },
   },
-  globalIgnores([".next/**", "next-env.d.ts"]),
+  globalIgnores([".next/**", "social/studio/.next/**", "social/instagram-launch/**", "next-env.d.ts"]),
 ]);

@@ -13,8 +13,10 @@ import {
 import { getStripeCheckoutPaymentMethod, paymentConfig, stripeTestPaymentMethodId } from "@/config/payments";
 import { defaultLocale, type LocaleCode } from "@/config/locales";
 import { sendOrderNotification } from "@/lib/orders/send-order-notification";
+import { validateInventoryForOrder } from "@/lib/inventory";
 import { isPaymentsTestModeEnabled } from "@/lib/payments-test-mode";
 import { createStripeCheckoutSession } from "@/lib/stripe/server";
+import { getLocalizedProduct } from "@/lib/i18n/products";
 import { getPublishedProducts } from "@/lib/product-visibility";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { OrderItem, StoreOrder } from "@/types/order";
@@ -75,9 +77,11 @@ function normalizeLocale(value: unknown): LocaleCode {
   return value === "pt" || value === "en" || value === "es" || value === "fr" || value === "de" || value === "zh" ? value : defaultLocale;
 }
 
-function stripePaymentNote(method: string) {
+function stripePaymentNote(method: string, testMode: boolean) {
   if (method === stripeTestPaymentMethodId) return "Pagamento de teste por cartão via Stripe Checkout. Aguarda confirmação por webhook.";
-  if (method === "MB Way") return "Pagamento de teste por MB Way via Stripe Checkout. Aguarda confirmação por webhook.";
+  if (method === "MB Way") return testMode
+    ? "Pagamento de teste por MB Way via Stripe Checkout. Aguarda confirmação por webhook."
+    : "Pagamento real por MB WAY via Stripe Checkout. Aguarda confirmação por webhook.";
   return "Dados bancários enviados após confirmação.";
 }
 
@@ -103,8 +107,8 @@ export async function createCheckoutOrder(input: CheckoutInput): Promise<Checkou
   }
 
   const stripePaymentMethod = getStripeCheckoutPaymentMethod(payment.method);
-  if (stripePaymentMethod && !paymentsTestMode) {
-    return { ok: false, message: "Este pagamento automático só está disponível em modo de teste." };
+  if (payment.method === stripeTestPaymentMethodId && !paymentsTestMode) {
+    return { ok: false, message: "O pagamento por cartão Stripe está disponível apenas em modo de teste." };
   }
 
   const requestedItems = parseItems(input.items);
@@ -112,7 +116,8 @@ export async function createCheckoutOrder(input: CheckoutInput): Promise<Checkou
     return { ok: false, message: "O carrinho está vazio ou contém quantidades inválidas." };
   }
 
-  const products = await getPublishedProducts();
+  const locale = normalizeLocale(input.locale);
+  const products = (await getPublishedProducts()).map((product) => getLocalizedProduct(product, locale));
   const productByStableId = new Map(products.map((product) => [product.stableId, product]));
   const storedItems: OrderItem[] = [];
   let subtotalCents = 0;
@@ -135,6 +140,11 @@ export async function createCheckoutOrder(input: CheckoutInput): Promise<Checkou
       unit_price: unitPriceCents / 100,
       subtotal: subtotal / 100,
     });
+  }
+
+  const inventory = await validateInventoryForOrder(storedItems);
+  if (!inventory.ok) {
+    return { ok: false, message: inventory.message };
   }
 
   const shipping = getDeliveryShipping(delivery);
@@ -169,10 +179,10 @@ export async function createCheckoutOrder(input: CheckoutInput): Promise<Checkou
       payment_status: paymentConfig.defaultStatus,
       payment_reference: null,
       paid_at: null,
-      payment_notes: stripePaymentNote(payment.method),
+      payment_notes: stripePaymentNote(payment.method, paymentsTestMode),
       stripe_payment_method: stripePaymentMethod,
       privacy_accepted: payment.privacyAccepted,
-      customer_locale: normalizeLocale(input.locale),
+      customer_locale: locale,
       status: "Pendente",
       created_at: createdAt,
       updated_at: createdAt,
@@ -198,7 +208,7 @@ export async function createCheckoutOrder(input: CheckoutInput): Promise<Checkou
       const session = await createStripeCheckoutSession({
         orderId: order.id,
         orderNumber,
-        locale: normalizeLocale(input.locale),
+        locale,
         items: storedItems,
         shippingTotal,
         total,
@@ -216,16 +226,31 @@ export async function createCheckoutOrder(input: CheckoutInput): Promise<Checkou
         .eq("id", order.id);
 
       if (!session.url) throw new Error("Stripe Checkout não devolveu URL.");
+
+      const notification = await sendOrderNotification({
+        ...order,
+        stripe_checkout_session_id: session.id,
+        stripe_payment_intent_id: typeof session.payment_intent === "string" ? session.payment_intent : null,
+        stripe_payment_method: stripePaymentMethod,
+      });
+
+      if (notification.ok) {
+        await supabase.from("orders").update({ email_sent_at: new Date().toISOString(), customer_email_sent_at: new Date().toISOString(), notification_error: null }).eq("id", order.id);
+      } else {
+        console.error("Order notification failed", { orderNumber, error: notification.error });
+        await supabase.from("orders").update({ notification_error: notification.error }).eq("id", order.id);
+      }
+
       return { ok: true, orderNumber, checkoutUrl: session.url };
     } catch (stripeError) {
       console.error("Stripe Checkout session failed", stripeError);
-      return { ok: false, message: "Não foi possível iniciar o pagamento de teste Stripe. Confirma as chaves de teste e o método selecionado." };
+      return { ok: false, message: paymentsTestMode ? "Não foi possível iniciar o pagamento de teste Stripe. Confirma as chaves de teste e o método selecionado." : "Não foi possível iniciar o pagamento Stripe. Confirma a configuração live da Stripe e o método selecionado." };
     }
   }
 
   const notification = await sendOrderNotification(order);
   if (notification.ok) {
-    await supabase.from("orders").update({ email_sent_at: new Date().toISOString(), notification_error: null }).eq("id", order.id);
+    await supabase.from("orders").update({ email_sent_at: new Date().toISOString(), customer_email_sent_at: new Date().toISOString(), notification_error: null }).eq("id", order.id);
   } else {
     console.error("Order notification failed", { orderNumber, error: notification.error });
     await supabase.from("orders").update({ notification_error: notification.error }).eq("id", order.id);
@@ -233,3 +258,4 @@ export async function createCheckoutOrder(input: CheckoutInput): Promise<Checkou
 
   return { ok: true, orderNumber };
 }
+

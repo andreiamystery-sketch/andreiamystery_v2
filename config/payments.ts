@@ -3,13 +3,20 @@
     id: "MB Way",
     label: "MB Way",
     enabled: true,
-    customerText: "Pagamento de teste por MB Way através de Stripe Checkout. Não movimenta dinheiro real.",
+    customerText: "Pagamento por MB WAY através de Stripe Checkout. A encomenda só fica paga após confirmação segura do webhook.",
   },
   {
     id: "Transferência bancária",
     label: "Transferência bancária",
     enabled: true,
     customerText: "Os dados bancários serão enviados após confirmação da encomenda.",
+  },
+  {
+    id: "Cartão de crédito",
+    label: "Cartão de crédito",
+    enabled: true,
+    productionOnly: true,
+    customerText: "Pagamento por cartão através de Stripe Checkout. A encomenda só fica paga após confirmação segura do webhook.",
   },
   {
     id: "Referência Multibanco",
@@ -21,6 +28,7 @@
     id: "Stripe Checkout Test",
     label: "Cartão - Stripe Test Mode",
     enabled: false,
+    testOnly: true,
     customerText: "Pagamento de teste por cartão através de Stripe Checkout. Não movimenta dinheiro real.",
   },
 ] as const;
@@ -53,14 +61,19 @@ export const paymentConfig = {
 
 export function getStripeCheckoutPaymentMethod(method: PaymentMethodId): StripeCheckoutPaymentMethod | null {
   if (method === stripeTestPaymentMethodId) return "card";
+  if (method === "Cartão de crédito") return "card";
   if (method === "MB Way") return "mb_way";
   return null;
 }
 
 export function getEnabledPaymentMethods(options: PaymentOptions = {}) {
-  return paymentMethods.filter((method) => method.enabled || (options.testMode && method.id === stripeTestPaymentMethodId));
+  return paymentMethods.filter((method) => {
+    if ("testOnly" in method && method.testOnly) return Boolean(options.testMode);
+    if ("productionOnly" in method && method.productionOnly) return !options.testMode && method.enabled;
+    return method.enabled;
+  });
 }
 
 export function isEnabledPaymentMethod(method: string, options: PaymentOptions = {}): method is PaymentMethodId {
-  return paymentMethods.some((item) => item.id === method && (item.enabled || (options.testMode && item.id === stripeTestPaymentMethodId)));
+  return getEnabledPaymentMethods(options).some((item) => item.id === method);
 }

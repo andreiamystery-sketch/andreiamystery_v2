@@ -4,22 +4,32 @@ import Stripe from "stripe";
 import { seoConfig } from "@/config/seo";
 import type { LocaleCode } from "@/config/locales";
 import type { StripeCheckoutPaymentMethod } from "@/config/payments";
+import { isPaymentsTestModeEnabled } from "@/lib/payments-test-mode";
 import type { OrderItem } from "@/types/order";
 
 const apiVersion = "2026-06-24.dahlia";
 
-export function assertStripeTestModeConfig() {
+export function assertStripeConfig() {
   const secretKey = process.env.STRIPE_SECRET_KEY ?? "";
   const publishableKey = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY ?? "";
+  const testMode = isPaymentsTestModeEnabled();
 
   if (!secretKey) throw new Error("STRIPE_SECRET_KEY não está configurada.");
-  if (secretKey.startsWith("sk_live_")) throw new Error("Chaves live da Stripe não são permitidas nesta integração.");
-  if (!secretKey.startsWith("sk_test_")) throw new Error("STRIPE_SECRET_KEY tem de ser uma chave de teste sk_test_.");
-  if (publishableKey && !publishableKey.startsWith("pk_test_")) throw new Error("NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY tem de ser uma chave de teste pk_test_.");
+
+  if (testMode) {
+    if (!secretKey.startsWith("sk_test_")) throw new Error("Em modo teste, STRIPE_SECRET_KEY tem de ser uma chave sk_test_.");
+    if (publishableKey && !publishableKey.startsWith("pk_test_")) throw new Error("Em modo teste, NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY tem de ser uma chave pk_test_.");
+    return;
+  }
+
+  if (!secretKey.startsWith("sk_live_")) throw new Error("Em modo real, STRIPE_SECRET_KEY tem de ser uma chave sk_live_.");
+  if (publishableKey && !publishableKey.startsWith("pk_live_")) throw new Error("Em modo real, NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY tem de ser uma chave pk_live_.");
 }
 
+export const assertStripeTestModeConfig = assertStripeConfig;
+
 export function getStripeClient() {
-  assertStripeTestModeConfig();
+  assertStripeConfig();
   return new Stripe(process.env.STRIPE_SECRET_KEY!, { apiVersion });
 }
 
@@ -36,6 +46,10 @@ export async function createStripeCheckoutSession(input: {
   total: number;
   stripePaymentMethod: StripeCheckoutPaymentMethod;
 }) {
+  if (input.stripePaymentMethod === "mb_way" && (input.total < 0.5 || input.total > 5000)) {
+    throw new Error("MB WAY aceita pagamentos entre 0,50 € e 5.000 €.");
+  }
+
   const stripe = getStripeClient();
   const currency = "eur";
   const expectedTotalCents = String(Math.round(input.total * 100));
@@ -61,7 +75,7 @@ export async function createStripeCheckoutSession(input: {
       price_data: {
         currency,
         unit_amount: Math.round(input.shippingTotal * 100),
-        product_data: { name: "Portes" },
+        product_data: { name: "Shipping" },
       },
     });
   }
@@ -69,7 +83,7 @@ export async function createStripeCheckoutSession(input: {
   const metadata = {
     order_id: String(input.orderId),
     order_number: input.orderNumber,
-    payments_test_mode: "true",
+    payments_test_mode: String(isPaymentsTestModeEnabled()),
     expected_total_cents: expectedTotalCents,
     stripe_payment_method: input.stripePaymentMethod,
   };
@@ -90,6 +104,5 @@ export async function createStripeCheckoutSession(input: {
 export function constructStripeWebhookEvent(body: string, signature: string) {
   const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET ?? "";
   if (!webhookSecret) throw new Error("STRIPE_WEBHOOK_SECRET não está configurado.");
-  if (webhookSecret.startsWith("whsec_live")) throw new Error("Webhook live da Stripe não é permitido nesta integração.");
   return getStripeClient().webhooks.constructEvent(body, signature, webhookSecret);
 }

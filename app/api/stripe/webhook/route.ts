@@ -2,7 +2,10 @@
 import Stripe from "stripe";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { constructStripeWebhookEvent } from "@/lib/stripe/server";
+import { decrementInventoryForPaidOrder } from "@/lib/inventory";
+import { sendOrderNotification } from "@/lib/orders/send-order-notification";
 import type { StripeCheckoutPaymentMethod } from "@/config/payments";
+import type { OrderItem, StoreOrder } from "@/types/order";
 
 export const runtime = "nodejs";
 
@@ -12,10 +15,38 @@ type StripeOrder = {
   id: number;
   order_number: string;
   total: number;
+  items: OrderItem[];
   payment_status: string | null;
+  email: string | null;
+  customer_name: string;
+  phone: string;
+  created_at: string;
+  subtotal: number | null;
+  shipping_total: number;
+  status: StoreOrder["status"];
+  updated_at: string;
+  email_sent_at: string | null;
+  notification_error: string | null;
+  delivery_method: string | null;
+  delivery_region: string | null;
+  delivery_country: string | null;
+  delivery_address: string | null;
+  delivery_postal_code: string | null;
+  delivery_city: string | null;
+  delivery_notes: string | null;
+  shipping_carrier: string | null;
+  shipping_estimate: string | null;
+  payment_method: string | null;
+  payment_reference: string | null;
+  paid_at: string | null;
+  payment_notes: string | null;
   stripe_checkout_session_id: string | null;
   stripe_payment_intent_id: string | null;
   stripe_payment_method: string | null;
+  stripe_last_event_id: string | null;
+  privacy_accepted: boolean;
+  customer_locale: string | null;
+  internal_notes: string | null;
 };
 
 function paymentIntentId(value: Stripe.Checkout.Session["payment_intent"] | Stripe.PaymentIntent | null | undefined) {
@@ -64,7 +95,7 @@ async function findOrder(input: { orderId?: string | null; sessionId?: string | 
   const supabase = createAdminClient();
   let query = supabase
     .from("orders")
-    .select("id,order_number,total,payment_status,stripe_checkout_session_id,stripe_payment_intent_id,stripe_payment_method")
+    .select("id,order_number,customer_name,phone,email,items,total,status,created_at,updated_at,email_sent_at,notification_error,internal_notes,subtotal,shipping_total,delivery_method,delivery_region,delivery_country,delivery_address,delivery_postal_code,delivery_city,delivery_notes,shipping_carrier,shipping_estimate,payment_method,payment_status,payment_reference,paid_at,payment_notes,stripe_checkout_session_id,stripe_payment_intent_id,stripe_payment_method,stripe_last_event_id,privacy_accepted,customer_locale")
     .limit(1);
 
   if (input.orderId) {
@@ -141,7 +172,21 @@ async function handlePaid(input: {
   const paymentMethodError = validatePaymentMethod(order, input.stripePaymentMethod ?? null);
   if (paymentMethodError) return { error: paymentMethodError };
 
-  return updateOrderPayment({
+  if (order.payment_status === "pago") {
+    return updateOrderPayment({
+      order,
+      sessionId: input.sessionId,
+      paymentIntentId: input.paymentIntentId,
+      stripePaymentMethod: input.stripePaymentMethod,
+      status: "pago",
+      eventId: input.eventId,
+    });
+  }
+
+  const inventory = await decrementInventoryForPaidOrder(order.id, order.items, input.eventId);
+  if (!inventory.ok) return { error: inventory.error ?? "Não foi possível atualizar o stock." };
+
+  const payment = await updateOrderPayment({
     order,
     sessionId: input.sessionId,
     paymentIntentId: input.paymentIntentId,
@@ -149,6 +194,17 @@ async function handlePaid(input: {
     status: "pago",
     eventId: input.eventId,
   });
+
+  if (payment.error) return payment;
+
+  const notification = await sendOrderNotification({ ...order, payment_status: "pago", paid_at: new Date().toISOString() }, { kind: "paid" });
+  if (!notification.ok) {
+    await createAdminClient().from("orders").update({ notification_error: notification.error, updated_at: new Date().toISOString() }).eq("id", order.id);
+    return { error: null };
+  }
+
+  await createAdminClient().from("orders").update({ payment_email_sent_at: new Date().toISOString(), notification_error: null, updated_at: new Date().toISOString() }).eq("id", order.id);
+  return { error: null };
 }
 
 async function handleFailed(input: {

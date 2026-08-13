@@ -1,10 +1,15 @@
 import type { SalesLocation } from "@/data/sales-locations";
+import type { Dictionary } from "@/lib/i18n/messages";
 
 export function SalesLocationsSection({
   locations,
+  dictionary,
 }: {
   locations: SalesLocation[];
+  dictionary: Dictionary;
 }) {
+  const t = dictionary.sections.sales;
+
   return (
     <section
       id="pontos-de-venda"
@@ -12,14 +17,14 @@ export function SalesLocationsSection({
     >
       <div className="mx-auto max-w-7xl">
         <div className="max-w-3xl">
-          <p className="eyebrow">Onde nos encontrar</p>
+          <p className="eyebrow">{t.eyebrow}</p>
 
           <h2 className="mt-4 font-serif text-5xl leading-none md:text-7xl">
-            Pontos de venda
+            {t.title}
           </h2>
 
           <p className="mt-5 font-serif text-lg leading-relaxed text-smoke">
-            Locais permanentes onde podes conhecer a Andrea&apos;s Mystery.
+            {t.description}
           </p>
         </div>
 
@@ -31,8 +36,8 @@ export function SalesLocationsSection({
             >
               <p className="eyebrow">
                 {location.type === "partner"
-                  ? "Ponto de venda"
-                  : "Loja"}
+                  ? t.partner
+                  : t.store}
               </p>
 
               <h3 className="mt-4 font-serif text-3xl">
@@ -49,7 +54,7 @@ export function SalesLocationsSection({
 
               {location.schedule && (
                 <p className="mt-4 text-sm uppercase tracking-[0.18em] text-smoke">
-                  {location.schedule}
+                  {t.schedule}
                 </p>
               )}
 
@@ -71,7 +76,7 @@ export function SalesLocationsSection({
                 <div className="mt-6 overflow-hidden rounded-sm border border-gold/20">
                   <iframe
                     src={location.mapEmbedUrl}
-                    title={`Mapa de ${location.name}`}
+                    title={`${t.map} ${location.name}`}
                     className="h-64 w-full"
                     loading="lazy"
                     allowFullScreen
@@ -87,10 +92,10 @@ export function SalesLocationsSection({
                   href={location.mapUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  aria-label={`Abrir ${location.name} no Google Maps`}
+                  aria-label={`${t.openMaps}: ${location.name}`}
                   className="premium-button mt-6 inline-flex"
                 >
-                  Abrir no Google Maps
+                  {t.openMaps}
                 </a>
               )}
             </article>

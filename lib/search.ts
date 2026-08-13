@@ -14,7 +14,9 @@ export function searchProducts(query: string, products: Product[] = defaultProdu
       product.name_de,
       product.name_zh,
       product.categoria,
+      product.categoryName,
       product.descricao,
+      product.fullDescription,
       product.description_pt,
       product.description_en,
       product.description_es,
@@ -22,6 +24,8 @@ export function searchProducts(query: string, products: Product[] = defaultProdu
       product.description_de,
       product.description_zh,
       ...product.detalhes,
+      ...product.materiais,
+      ...(product.translations ? Object.values(product.translations).flatMap((translation) => [translation?.name, translation?.shortDescription, translation?.description, translation?.categoryName, ...(translation?.details ?? []), ...(translation?.materials ?? [])]) : []),
     ]
       .filter(Boolean)
       .join(" ")

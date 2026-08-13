@@ -68,8 +68,8 @@ export function CookieConsent() {
   if (!open) return null;
 
   return (
-    <div className="fixed inset-x-0 bottom-0 z-[70] px-4 pb-4 md:px-8" role="region" aria-label={t.cookies.preferences}>
-      <div className="mx-auto max-w-4xl border border-champagne/30 bg-obsidian p-5 text-ivory shadow-[0_30px_100px_rgba(0,0,0,.55)] md:p-6">
+    <div className="pointer-events-none fixed inset-x-0 bottom-0 z-[70] px-4 pb-4 md:px-8" role="region" aria-label={t.cookies.preferences}>
+      <div className="pointer-events-auto mx-auto max-w-4xl border border-champagne/30 bg-obsidian p-5 text-ivory shadow-[0_30px_100px_rgba(0,0,0,.55)] md:p-6">
         <div className="flex flex-col gap-5 md:flex-row md:items-start md:justify-between">
           <div>
             <p className="eyebrow">{t.cookies.label}</p>

@@ -14,12 +14,12 @@ const freeShippingText = {
 } as const;
 
 export function TopBar() {
-  const { locale } = useI18n();
+  const { dictionary: t, locale } = useI18n();
   const shippingMessage = storeSettings.freeShippingThreshold
     ? `${freeShippingText[locale]} ${formatPrice(storeSettings.freeShippingThreshold, locale)}`
     : null;
-  const centerMessage = storeSettings.topBar.centerMessage;
-  const serviceMessage = storeSettings.topBar.serviceMessage;
+  const centerMessage = storeSettings.topBar.centerMessage ? t.header.story : null;
+  const serviceMessage = storeSettings.topBar.serviceMessage ? t.header.service : null;
 
   if (!shippingMessage && !centerMessage && !serviceMessage) return null;
 

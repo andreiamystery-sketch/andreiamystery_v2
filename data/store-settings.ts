@@ -32,9 +32,10 @@ export const storeSettings = {
 };
 
 export const storeBenefits = [
-  { icon: "gem", title: "Bijuteria premium", description: "Detalhe e acabamento cuidado" },
-  { icon: "sparkles", title: "Durabilidade", description: "Peças escolhidas para acompanhar-te" },
-  { icon: "gift", title: "Embalagem exclusiva", description: "Preparada com atenção" },
-  { icon: "hand", title: "Compra acompanhada", description: "Apoio em cada etapa" },
-  { icon: "package", title: "Envio com DPD", description: "Prazos estimados por região" },
+  { icon: "gem", key: "premium" },
+  { icon: "sparkles", key: "durability" },
+  { icon: "gift", key: "packaging" },
+  { icon: "hand", key: "support" },
+  { icon: "package", key: "shipping" },
 ] as const;
+

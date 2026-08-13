@@ -1,6 +1,21 @@
-﻿export type Category = "Anéis" | "Brincos" | "Colares" | "Pulseiras";
+﻿import type { AppLocale } from "@/config/locales";
+
+export type Category = "Anéis" | "Brincos" | "Colares" | "Pulseiras";
+
+export type ProductTranslationContent = {
+  name?: string | null;
+  shortDescription?: string | null;
+  description?: string | null;
+  categoryName?: string | null;
+  materials?: string[] | null;
+  details?: string[] | null;
+  availability?: string | null;
+  seoTitle?: string | null;
+  seoDescription?: string | null;
+};
 
 export type ProductTranslations = {
+  translations?: Partial<Record<AppLocale, ProductTranslationContent>>;
   name_pt?: string;
   name_en?: string | null;
   name_es?: string | null;
@@ -20,12 +35,17 @@ export type Product = ProductTranslations & {
   slug: string;
   nome: string;
   categoria: Category;
+  categoryName?: string;
   preco: number;
   supplierPrice?: number;
   priceMultiplier: number;
   price: number;
   currency: "EUR";
   descricao: string;
+  fullDescription?: string;
+  availabilityText?: string;
+  seoTitle?: string;
+  seoDescription?: string;
   capa: string;
   imagens: string[];
   detalhes: string[];
@@ -52,4 +72,3 @@ export type CategoryFilter = {
   description: string;
   imagem?: string;
 };
-
