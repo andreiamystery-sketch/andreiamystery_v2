@@ -1,10 +1,12 @@
 "use client";
 
 import { useI18n } from "@/components/i18n/i18n-provider";
+import { useStore } from "@/hooks/use-store";
 import { useEffect, useRef, useState, type MouseEvent } from "react";
 
 export function MusicPlayer() {
   const { dictionary: t } = useI18n();
+  const { cartDrawerOpen } = useStore();
   const audioRef = useRef<HTMLAudioElement>(null);
   const userStoppedRef = useRef(false);
   const removeUnlockListenersRef = useRef<() => void>(() => {});
@@ -105,7 +107,11 @@ export function MusicPlayer() {
         onClick={toggleMusic}
         aria-label={label}
         title={label}
-        className="music-player fixed bottom-[max(1.25rem,env(safe-area-inset-bottom))] right-[max(5.5rem,calc(env(safe-area-inset-right)+5.5rem))] z-50 flex h-12 w-12 items-center justify-center rounded-full border border-gold bg-obsidian text-gold shadow-lg transition hover:scale-110 sm:bottom-6 sm:right-40"
+        className={`music-player fixed z-50 flex h-12 w-12 items-center justify-center rounded-full border border-gold bg-obsidian text-gold shadow-lg transition hover:scale-110 ${
+          cartDrawerOpen
+            ? "bottom-auto right-[max(6rem,calc(env(safe-area-inset-right)+6rem))] top-[max(1rem,env(safe-area-inset-top))] sm:bottom-6 sm:right-[calc(28rem+6rem)] sm:top-auto"
+            : "bottom-[max(1.25rem,env(safe-area-inset-bottom))] right-[max(5.5rem,calc(env(safe-area-inset-right)+5.5rem))] sm:bottom-6 sm:right-40"
+        }`}
       >
         <span aria-hidden="true">{playing ? "♪" : "♫"}</span>
       </button>

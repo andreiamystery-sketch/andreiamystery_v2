@@ -1,5 +1,6 @@
 ﻿"use server";
 
+import { after } from "next/server";
 import {
   createOrderNumber,
   getDeliveryShipping,
@@ -13,7 +14,6 @@ import {
 import { getStripeCheckoutPaymentMethod, paymentConfig, stripeTestPaymentMethodId } from "@/config/payments";
 import { defaultLocale, type LocaleCode } from "@/config/locales";
 import { sendOrderNotification } from "@/lib/orders/send-order-notification";
-import { validateInventoryForOrder } from "@/lib/inventory";
 import { isPaymentsTestModeEnabled } from "@/lib/payments-test-mode";
 import { createStripeCheckoutSession } from "@/lib/stripe/server";
 import { getLocalizedProduct } from "@/lib/i18n/products";
@@ -85,7 +85,36 @@ function stripePaymentNote(method: string, testMode: boolean) {
   return "Dados bancários enviados após confirmação.";
 }
 
+function logCheckoutTiming(orderNumber: string, phase: string, startedAt: number) {
+  if (process.env.NODE_ENV !== "development") return;
+  console.info(`[checkout:${orderNumber}] ${phase}: ${(performance.now() - startedAt).toFixed(1)}ms`);
+}
+
+function scheduleOrderNotification(order: StoreOrder) {
+  after(async () => {
+    const emailStartedAt = performance.now();
+    const notification = await sendOrderNotification(order);
+    const supabase = createAdminClient();
+
+    if (notification.ok) {
+      const sentAt = new Date().toISOString();
+      const { error } = await supabase
+        .from("orders")
+        .update({ email_sent_at: sentAt, customer_email_sent_at: sentAt, notification_error: null })
+        .eq("id", order.id);
+      if (error) console.error("Order email status update failed", { orderNumber: order.order_number, message: error.message });
+    } else {
+      console.error("Order notification failed", { orderNumber: order.order_number, error: notification.error });
+      const { error } = await supabase.from("orders").update({ notification_error: notification.error }).eq("id", order.id);
+      if (error) console.error("Order notification error status update failed", { orderNumber: order.order_number, message: error.message });
+    }
+
+    logCheckoutTiming(order.order_number, "emails e registo pós-resposta", emailStartedAt);
+  });
+}
+
 export async function createCheckoutOrder(input: CheckoutInput): Promise<CheckoutResult> {
+  const checkoutStartedAt = performance.now();
   const customer = {
     name: typeof input.customer?.name === "string" ? input.customer.name.trim().slice(0, 120) : "",
     phone: typeof input.customer?.phone === "string" ? input.customer.phone.trim().slice(0, 40) : "",
@@ -117,7 +146,10 @@ export async function createCheckoutOrder(input: CheckoutInput): Promise<Checkou
   }
 
   const locale = normalizeLocale(input.locale);
+  const orderNumber = createOrderNumber();
+  const catalogStartedAt = performance.now();
   const products = (await getPublishedProducts()).map((product) => getLocalizedProduct(product, locale));
+  logCheckoutTiming(orderNumber, "catálogo/visibilidade Supabase", catalogStartedAt);
   const productByStableId = new Map(products.map((product) => [product.stableId, product]));
   const storedItems: OrderItem[] = [];
   let subtotalCents = 0;
@@ -142,19 +174,14 @@ export async function createCheckoutOrder(input: CheckoutInput): Promise<Checkou
     });
   }
 
-  const inventory = await validateInventoryForOrder(storedItems);
-  if (!inventory.ok) {
-    return { ok: false, message: inventory.message };
-  }
-
   const shipping = getDeliveryShipping(delivery);
   const shippingCents = Math.round(shipping.price * 100);
   const subtotal = subtotalCents / 100;
   const shippingTotal = shippingCents / 100;
   const total = (subtotalCents + shippingCents) / 100;
-  const orderNumber = createOrderNumber();
   const createdAt = new Date().toISOString();
   const supabase = createAdminClient();
+  const orderInsertStartedAt = performance.now();
   const { data, error } = await supabase
     .from("orders")
     .insert({
@@ -189,6 +216,7 @@ export async function createCheckoutOrder(input: CheckoutInput): Promise<Checkou
     })
     .select(orderSelect)
     .single();
+  logCheckoutTiming(orderNumber, "criação da encomenda Supabase", orderInsertStartedAt);
 
   if (error) {
     console.error("Checkout order insert failed", { code: error.code, message: error.message, details: error.details, hint: error.hint });
@@ -205,6 +233,7 @@ export async function createCheckoutOrder(input: CheckoutInput): Promise<Checkou
 
   if (stripePaymentMethod) {
     try {
+      const stripeStartedAt = performance.now();
       const session = await createStripeCheckoutSession({
         orderId: order.id,
         orderNumber,
@@ -214,8 +243,10 @@ export async function createCheckoutOrder(input: CheckoutInput): Promise<Checkou
         total,
         stripePaymentMethod,
       });
+      logCheckoutTiming(orderNumber, "criação da Checkout Session Stripe", stripeStartedAt);
 
-      await supabase
+      const stripeAssociationStartedAt = performance.now();
+      const { error: stripeAssociationError } = await supabase
         .from("orders")
         .update({
           stripe_checkout_session_id: session.id,
@@ -224,38 +255,45 @@ export async function createCheckoutOrder(input: CheckoutInput): Promise<Checkou
           updated_at: new Date().toISOString(),
         })
         .eq("id", order.id);
+      logCheckoutTiming(orderNumber, "associação Stripe na encomenda Supabase", stripeAssociationStartedAt);
+
+      if (stripeAssociationError) throw new Error(`Não foi possível associar a sessão Stripe: ${stripeAssociationError.message}`);
 
       if (!session.url) throw new Error("Stripe Checkout não devolveu URL.");
 
-      const notification = await sendOrderNotification({
+      scheduleOrderNotification({
         ...order,
         stripe_checkout_session_id: session.id,
         stripe_payment_intent_id: typeof session.payment_intent === "string" ? session.payment_intent : null,
         stripe_payment_method: stripePaymentMethod,
       });
-
-      if (notification.ok) {
-        await supabase.from("orders").update({ email_sent_at: new Date().toISOString(), customer_email_sent_at: new Date().toISOString(), notification_error: null }).eq("id", order.id);
-      } else {
-        console.error("Order notification failed", { orderNumber, error: notification.error });
-        await supabase.from("orders").update({ notification_error: notification.error }).eq("id", order.id);
-      }
-
+      logCheckoutTiming(orderNumber, "tempo total até devolver redirecionamento", checkoutStartedAt);
       return { ok: true, orderNumber, checkoutUrl: session.url };
     } catch (stripeError) {
       console.error("Stripe Checkout session failed", stripeError);
+      const failedAt = new Date().toISOString();
+      const { error: paymentUpdateError } = await supabase
+        .from("orders")
+        .update({
+          payment_status: "falhado",
+          paid_at: null,
+          payment_notes: `${stripePaymentNote(payment.method, paymentsTestMode)} Falha ao iniciar Stripe Checkout.`,
+          updated_at: failedAt,
+        })
+        .eq("id", order.id);
+
+      if (paymentUpdateError) {
+        console.error("Checkout payment failure status update failed", {
+          orderNumber,
+          message: paymentUpdateError.message,
+        });
+      }
       return { ok: false, message: paymentsTestMode ? "Não foi possível iniciar o pagamento de teste Stripe. Confirma as chaves de teste e o método selecionado." : "Não foi possível iniciar o pagamento Stripe. Confirma a configuração live da Stripe e o método selecionado." };
     }
   }
 
-  const notification = await sendOrderNotification(order);
-  if (notification.ok) {
-    await supabase.from("orders").update({ email_sent_at: new Date().toISOString(), customer_email_sent_at: new Date().toISOString(), notification_error: null }).eq("id", order.id);
-  } else {
-    console.error("Order notification failed", { orderNumber, error: notification.error });
-    await supabase.from("orders").update({ notification_error: notification.error }).eq("id", order.id);
-  }
-
+  scheduleOrderNotification(order);
+  logCheckoutTiming(orderNumber, "tempo total até devolver confirmação", checkoutStartedAt);
   return { ok: true, orderNumber };
 }
 

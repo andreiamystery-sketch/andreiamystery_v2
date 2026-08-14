@@ -102,13 +102,14 @@ async function sendCustomerOrderEmail(order: StoreOrder, kind: OrderEmailKind) {
 
 export async function sendOrderNotification(order: StoreOrder, options: { kind?: OrderEmailKind } = {}) {
   const kind = options.kind ?? "received";
-  const storeEmail = await sendStoreOrderEmail(order, kind);
+  const [storeEmail, customerEmail] = await Promise.all([
+    sendStoreOrderEmail(order, kind),
+    sendCustomerOrderEmail(order, kind),
+  ]);
 
   if (!storeEmail.ok) {
     return storeEmail;
   }
-
-  const customerEmail = await sendCustomerOrderEmail(order, kind);
 
   if (!customerEmail.ok) {
     return customerEmail;

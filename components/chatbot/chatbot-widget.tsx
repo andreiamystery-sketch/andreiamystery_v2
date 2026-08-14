@@ -4,6 +4,7 @@ import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { Headset, MessageCircle, Send, X } from "lucide-react";
 import { useI18n } from "@/components/i18n/i18n-provider";
 import { chatbotKnowledge } from "@/lib/chatbot";
+import { useStore } from "@/hooks/use-store";
 
 type Message = {
   id: number;
@@ -19,11 +20,14 @@ function cn(...values: Array<string | false | undefined>) {
 export function ChatbotWidget() {
   const knowledge = chatbotKnowledge;
   const { dictionary: t, locale } = useI18n();
+  const { cartDrawerOpen } = useStore();
 
   const [open, setOpen] = useState(false);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
+  const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const shouldAutoScrollRef = useRef(true);
 
   const [messages, setMessages] = useState<Message[]>([
@@ -41,6 +45,38 @@ export function ChatbotWidget() {
     () => t.chatbot.quickPrompts,
     [t.chatbot.quickPrompts],
   );
+
+  function cancelScheduledClose() {
+    if (closeTimerRef.current) {
+      clearTimeout(closeTimerRef.current);
+      closeTimerRef.current = null;
+    }
+  }
+
+  function scheduleDesktopClose() {
+    if (!window.matchMedia("(hover: hover) and (pointer: fine)").matches) return;
+    cancelScheduledClose();
+    closeTimerRef.current = setTimeout(() => {
+      if (!panelRef.current?.contains(document.activeElement)) setOpen(false);
+      closeTimerRef.current = null;
+    }, 1000);
+  }
+
+  useEffect(() => {
+    if (!open) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("keydown", onKeyDown);
+      cancelScheduledClose();
+    };
+  }, [open]);
+
+  useEffect(() => {
+    if (cartDrawerOpen) setOpen(false);
+  }, [cartDrawerOpen]);
 
   function handleMessagesScroll() {
     const container = messagesContainerRef.current;
@@ -169,12 +205,22 @@ export function ChatbotWidget() {
   }
 
   return (
-    <div className="pointer-events-none fixed bottom-[max(5rem,calc(env(safe-area-inset-bottom)+1.25rem))] right-[max(1rem,env(safe-area-inset-right))] z-50 sm:bottom-6 sm:right-6">
+    <div className={cn(
+      "pointer-events-none fixed z-50",
+      cartDrawerOpen
+        ? "bottom-auto left-[max(1rem,env(safe-area-inset-left))] right-auto top-[max(1rem,env(safe-area-inset-top))] sm:bottom-6 sm:left-auto sm:right-[calc(28rem+1.5rem)] sm:top-auto"
+        : "bottom-[max(5rem,calc(env(safe-area-inset-bottom)+1.25rem))] right-[max(1rem,env(safe-area-inset-right))] sm:bottom-6 sm:right-6",
+    )}>
       <div
+        ref={panelRef}
+        onMouseEnter={cancelScheduledClose}
+        onMouseLeave={scheduleDesktopClose}
+        onFocusCapture={cancelScheduledClose}
         className={cn(
-          "pointer-events-auto mb-4 flex max-h-[calc(100dvh-7rem)] w-[calc(100vw-2rem)] max-w-[390px] origin-bottom-right flex-col overflow-hidden border border-champagne/35 bg-[#080706] text-white shadow-2xl transition duration-300 sm:max-h-[640px] sm:w-[390px]",
+          "mb-4 flex max-h-[calc(100dvh-7rem)] w-[calc(100vw-2rem)] max-w-[390px] origin-bottom-right flex-col overflow-hidden border border-champagne/35 bg-[#080706] text-white shadow-2xl transition duration-300 sm:max-h-[640px] sm:w-[390px]",
+          cartDrawerOpen && "hidden",
           open
-            ? "translate-y-0 scale-100 opacity-100"
+            ? "pointer-events-auto translate-y-0 scale-100 opacity-100"
             : "pointer-events-none translate-y-3 scale-95 opacity-0",
         )}
         aria-hidden={!open}
@@ -200,7 +246,7 @@ export function ChatbotWidget() {
 
             <button
               type="button"
-              onClick={() => setOpen(false)}
+              onClick={() => { cancelScheduledClose(); setOpen(false); }}
               className="grid h-9 w-9 place-items-center border border-white/10 text-stone-300 transition hover:border-champagne hover:text-champagne"
               aria-label={t.chatbot.close}
             >
@@ -317,7 +363,10 @@ export function ChatbotWidget() {
       <button
         type="button"
         onClick={() => setOpen((value) => !value)}
-        className="pointer-events-auto ml-auto flex h-14 w-14 items-center justify-center gap-2 rounded-full border border-champagne/55 bg-[#090807] text-champagne shadow-2xl transition hover:-translate-y-0.5 hover:bg-champagne hover:text-black sm:w-auto sm:px-4"
+        className={cn(
+          "pointer-events-auto ml-auto flex h-14 w-14 items-center justify-center gap-2 rounded-full border border-champagne/55 bg-[#090807] text-champagne shadow-2xl transition hover:-translate-y-0.5 hover:bg-champagne hover:text-black",
+          cartDrawerOpen ? "sm:w-14 sm:px-0" : "sm:w-auto sm:px-4",
+        )}
         aria-label={
           open ? t.chatbot.minimize : t.chatbot.open
         }
@@ -328,7 +377,7 @@ export function ChatbotWidget() {
         ) : (
           <>
             <MessageCircle size={22} />
-            <span className="hidden text-xs font-bold uppercase tracking-[0.18em] sm:inline">
+            <span className={cn("hidden text-xs font-bold uppercase tracking-[0.18em]", !cartDrawerOpen && "sm:inline")}>
               {t.chatbot.button}
             </span>
           </>

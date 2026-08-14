@@ -17,9 +17,8 @@ import { publishedSalesLocations } from "@/data/sales-locations";
 
 export function Header() {
   const [menuOpen, setMenuOpen] = useState(false);
-  const [cartOpen, setCartOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
-  const { cartCount, favorites } = useStore();
+  const { cartCount, cartDrawerOpen, favorites, setCartDrawerOpen } = useStore();
   const { dictionary: t, locale, localizePath, pathnameWithoutLocale } = useI18n();
   const searchParams = useSearchParams();
 
@@ -45,11 +44,11 @@ export function Header() {
           <button type="button" className="inline-flex h-11 w-11 items-center justify-center border border-gold/30 text-gold md:hidden" onClick={() => setMenuOpen((value) => !value)} aria-label={menuOpen ? t.header.closeMenu : t.header.openMenu}>{menuOpen ? <X size={20} /> : <Menu size={20} />}</button>
           <Logo className="col-start-2 justify-items-center md:col-start-1 md:justify-self-start md:justify-items-start" />
           <nav aria-label={t.header.mainNavigation} className="hidden justify-self-center text-[0.68rem] font-bold uppercase tracking-[0.18em] md:col-start-2 md:flex md:items-center md:gap-5 xl:gap-8">{navItems.map((item) => <Link key={item.href} href={item.href} className="relative py-3 text-warm-gray transition after:absolute after:inset-x-1 after:bottom-0 after:h-px after:origin-center after:scale-x-0 after:bg-gold after:transition hover:text-ivory hover:after:scale-x-100">{item.label}</Link>)}</nav>
-          <div className="col-start-3 row-start-1 flex items-center justify-self-end"><LanguageSwitcher locale={locale} pathnameWithoutLocale={pathnameWithoutLocale} query={query} label={t.actions.chooseLanguage} /><button className="icon-button" type="button" onClick={() => setSearchOpen(true)} aria-label={t.actions.search}><Search size={18} /></button><Link className="icon-button relative" href={localizePath("/#favoritos")} aria-label={t.actions.favorites}><Heart size={18} />{favorites.length > 0 && <span className="pill-counter">{favorites.length}</span>}</Link><button className="icon-button relative" type="button" onClick={() => setCartOpen(true)} aria-label={t.actions.cart}><ShoppingBag size={18} />{cartCount > 0 && <span className="pill-counter">{cartCount}</span>}</button></div>
+          <div className="col-start-3 row-start-1 flex items-center justify-self-end"><LanguageSwitcher locale={locale} pathnameWithoutLocale={pathnameWithoutLocale} query={query} label={t.actions.chooseLanguage} /><button className="icon-button" type="button" onClick={() => setSearchOpen(true)} aria-label={t.actions.search}><Search size={18} /></button><Link className="icon-button relative" href={localizePath("/#favoritos")} aria-label={t.actions.favorites}><Heart size={18} />{favorites.length > 0 && <span className="pill-counter">{favorites.length}</span>}</Link><button className="icon-button relative" type="button" onClick={() => setCartDrawerOpen(true)} aria-label={t.actions.cart}><ShoppingBag size={18} />{cartCount > 0 && <span className="pill-counter">{cartCount}</span>}</button></div>
         </div>
         {menuOpen && <nav aria-label={t.header.mobileNavigation} className="grid gap-1 border-t border-gold/20 bg-black-warm px-5 py-5 text-sm font-bold uppercase tracking-[0.2em] md:hidden"><MobileLanguageSwitcher locale={locale} pathnameWithoutLocale={pathnameWithoutLocale} query={query} label={t.actions.chooseLanguage} />{navItems.map((item) => <Link className="min-h-11 border-b border-gold/10 py-3 text-warm-gray" key={item.href} href={item.href} onClick={() => setMenuOpen(false)}>{item.label}</Link>)}</nav>}
       </header>
-      <CartDrawer open={cartOpen} onClose={() => setCartOpen(false)} />
+      <CartDrawer open={cartDrawerOpen} onClose={() => setCartDrawerOpen(false)} />
       <SearchDrawer open={searchOpen} onClose={() => setSearchOpen(false)} />
     </>
   );

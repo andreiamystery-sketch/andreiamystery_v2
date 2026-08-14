@@ -2,14 +2,13 @@
 import Stripe from "stripe";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { constructStripeWebhookEvent } from "@/lib/stripe/server";
-import { decrementInventoryForPaidOrder } from "@/lib/inventory";
 import { sendOrderNotification } from "@/lib/orders/send-order-notification";
 import type { StripeCheckoutPaymentMethod } from "@/config/payments";
 import type { OrderItem, StoreOrder } from "@/types/order";
 
 export const runtime = "nodejs";
 
-type StripePaymentStatus = "pago" | "falhado";
+type StripePaymentStatus = "pago" | "falhado" | "reembolsado";
 
 type StripeOrder = {
   id: number;
@@ -68,6 +67,10 @@ function paymentMethodFromSession(session: Stripe.Checkout.Session) {
 
 function paymentMethodFromIntent(paymentIntent: Stripe.PaymentIntent) {
   return normalizeStripePaymentMethod(paymentIntent.payment_method_types?.[0] ?? paymentIntent.metadata?.stripe_payment_method);
+}
+
+function paymentMethodFromCharge(charge: Stripe.Charge) {
+  return normalizeStripePaymentMethod(charge.payment_method_details?.type);
 }
 
 async function claimWebhookEvent(event: Stripe.Event) {
@@ -136,7 +139,7 @@ async function updateOrderPayment(input: {
 }) {
   const patch: Record<string, string | null> = {
     payment_status: input.status,
-    paid_at: input.status === "pago" ? new Date().toISOString() : null,
+    paid_at: input.status === "pago" ? new Date().toISOString() : input.status === "reembolsado" ? input.order.paid_at : null,
     updated_at: new Date().toISOString(),
     stripe_last_event_id: input.eventId,
   };
@@ -152,6 +155,61 @@ async function updateOrderPayment(input: {
 
   const { error } = await createAdminClient().from("orders").update(patch).eq("id", input.order.id);
   return { error: error?.message ?? null };
+}
+
+async function handleAwaiting(input: {
+  eventId: string;
+  orderId?: string | null;
+  sessionId?: string | null;
+  paymentIntentId?: string | null;
+  stripePaymentMethod?: StripeCheckoutPaymentMethod | null;
+  currency?: string | null;
+  amount?: number | null;
+}) {
+  const { order, error } = await findOrder(input);
+  if (error || !order) return { error: error ?? "Encomenda não encontrada." };
+
+  const amountError = validateAmount(order, input.currency, input.amount);
+  if (amountError) return { error: amountError };
+
+  const paymentMethodError = validatePaymentMethod(order, input.stripePaymentMethod ?? null);
+  if (paymentMethodError) return { error: paymentMethodError };
+
+  const patch: Record<string, string> = {
+    updated_at: new Date().toISOString(),
+    stripe_last_event_id: input.eventId,
+  };
+  if (input.sessionId) patch.stripe_checkout_session_id = input.sessionId;
+  if (input.paymentIntentId) patch.stripe_payment_intent_id = input.paymentIntentId;
+  if (input.stripePaymentMethod) patch.stripe_payment_method = input.stripePaymentMethod;
+
+  const { error: updateError } = await createAdminClient().from("orders").update(patch).eq("id", order.id);
+  return { error: updateError?.message ?? null };
+}
+
+async function handleRefunded(input: {
+  eventId: string;
+  paymentIntentId?: string | null;
+  stripePaymentMethod?: StripeCheckoutPaymentMethod | null;
+  currency?: string | null;
+  amount?: number | null;
+}) {
+  const { order, error } = await findOrder(input);
+  if (error || !order) return { error: error ?? "Encomenda não encontrada." };
+
+  const amountError = validateAmount(order, input.currency, input.amount);
+  if (amountError) return { error: amountError };
+
+  const paymentMethodError = validatePaymentMethod(order, input.stripePaymentMethod ?? null);
+  if (paymentMethodError) return { error: paymentMethodError };
+
+  return updateOrderPayment({
+    order,
+    paymentIntentId: input.paymentIntentId,
+    stripePaymentMethod: input.stripePaymentMethod,
+    status: "reembolsado",
+    eventId: input.eventId,
+  });
 }
 
 async function handlePaid(input: {
@@ -182,9 +240,6 @@ async function handlePaid(input: {
       eventId: input.eventId,
     });
   }
-
-  const inventory = await decrementInventoryForPaidOrder(order.id, order.items, input.eventId);
-  if (!inventory.ok) return { error: inventory.error ?? "Não foi possível atualizar o stock." };
 
   const payment = await updateOrderPayment({
     order,
@@ -244,6 +299,22 @@ export async function POST(request: Request) {
 
   if (event.type === "checkout.session.completed") {
     const session = event.data.object as Stripe.Checkout.Session;
+    const handler = session.payment_status === "paid" ? handlePaid : handleAwaiting;
+    const result = await handler({
+      eventId: event.id,
+      orderId: session.metadata?.order_id ?? session.client_reference_id,
+      sessionId: session.id,
+      paymentIntentId: paymentIntentId(session.payment_intent),
+      stripePaymentMethod: paymentMethodFromSession(session),
+      currency: session.currency,
+      amount: session.amount_total,
+    });
+
+    if (result.error) return failWebhook(event.id, result.error);
+  }
+
+  if (event.type === "checkout.session.async_payment_succeeded") {
+    const session = event.data.object as Stripe.Checkout.Session;
     const result = await handlePaid({
       eventId: event.id,
       orderId: session.metadata?.order_id ?? session.client_reference_id,
@@ -294,6 +365,21 @@ export async function POST(request: Request) {
     });
 
     if (result.error) return failWebhook(event.id, result.error);
+  }
+
+  if (event.type === "charge.refunded") {
+    const charge = event.data.object as Stripe.Charge;
+    if (charge.refunded) {
+      const result = await handleRefunded({
+        eventId: event.id,
+        paymentIntentId: paymentIntentId(charge.payment_intent),
+        stripePaymentMethod: paymentMethodFromCharge(charge),
+        currency: charge.currency,
+        amount: charge.amount,
+      });
+
+      if (result.error) return failWebhook(event.id, result.error);
+    }
   }
 
   return NextResponse.json({ received: true });

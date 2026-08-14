@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useEffect, useMemo, useState } from "react";
+import { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
 import type { Product } from "@/types/product";
 
 export type CartLine = Product & { quantity: number; variantId?: string };
@@ -11,10 +11,13 @@ type StoreContextValue = {
   products: Product[];
   cart: CartLine[];
   favorites: number[];
+  cartDrawerOpen: boolean;
+  setCartDrawerOpen: (open: boolean) => void;
   addToCart: (product: Product, quantity?: number, variantId?: string) => void;
   decreaseCartQuantity: (id: number, variantId?: string) => void;
   setCartQuantity: (id: number, quantity: number, variantId?: string) => void;
-  removeFromCart: (id: number) => void;
+  removeFromCart: (id: number, variantId?: string) => void;
+  persistCart: () => void;
   clearCart: () => void;
   toggleFavorite: (id: number) => void;
   cartCount: number;
@@ -23,15 +26,19 @@ type StoreContextValue = {
 };
 
 const StoreContext = createContext<StoreContextValue | null>(null);
+const cartStorageKey = "andreas-cart";
 
 export function StoreProvider({ children, products }: { children: React.ReactNode; products: Product[] }) {
   const [cartItems, setCartItems] = useState<StoredCartItem[]>([]);
   const [favorites, setFavorites] = useState<number[]>([]);
   const [hydrated, setHydrated] = useState(false);
   const [cartNotice, setCartNotice] = useState("");
+  const [cartDrawerOpen, setCartDrawerOpen] = useState(false);
+  const initialProductsRef = useRef(products);
 
   useEffect(() => {
-    const savedCart = window.localStorage.getItem("andreas-cart");
+    const initialProducts = initialProductsRef.current;
+    const savedCart = window.localStorage.getItem(cartStorageKey);
     const savedFavorites = window.localStorage.getItem("andreas-favorites");
     if (savedCart) {
       try {
@@ -41,8 +48,8 @@ export function StoreProvider({ children, products }: { children: React.ReactNod
               const storedStableId = item.stableId ?? (typeof item.productId === "string" ? item.productId : undefined);
               const numericId = typeof item.productId === "number" ? item.productId : item.id;
               const product = storedStableId
-                ? products.find((candidate) => candidate.stableId === storedStableId)
-                : products.find((candidate) => candidate.id === numericId);
+                ? initialProducts.find((candidate) => candidate.stableId === storedStableId)
+                : initialProducts.find((candidate) => candidate.id === numericId);
               return product
                 ? [{
                     productId: product.stableId,
@@ -61,16 +68,16 @@ export function StoreProvider({ children, products }: { children: React.ReactNod
     }
     if (savedFavorites) {
       try {
-        setFavorites((JSON.parse(savedFavorites) as number[]).filter((id) => products.some((product) => product.id === id)));
+        setFavorites((JSON.parse(savedFavorites) as number[]).filter((id) => initialProducts.some((product) => product.id === id)));
       } catch {
         setFavorites([]);
       }
     }
     setHydrated(true);
-  }, [products]);
+  }, []);
 
   useEffect(() => {
-    if (hydrated) window.localStorage.setItem("andreas-cart", JSON.stringify(cartItems));
+    if (hydrated) window.localStorage.setItem(cartStorageKey, JSON.stringify(cartItems));
   }, [cartItems, hydrated]);
 
   useEffect(() => {
@@ -87,10 +94,18 @@ export function StoreProvider({ children, products }: { children: React.ReactNod
   );
 
   const value = useMemo<StoreContextValue>(() => {
+    const updateCart = (updater: (current: StoredCartItem[]) => StoredCartItem[]) => {
+      setCartItems((current) => {
+        const next = updater(current);
+        if (hydrated) window.localStorage.setItem(cartStorageKey, JSON.stringify(next));
+        return next;
+      });
+    };
+
     const addToCart = (product: Product, quantity = 1, variantId?: string) => {
       if (!products.some((candidate) => candidate.id === product.id)) return;
       const safeQuantity = Math.max(1, Math.floor(quantity));
-      setCartItems((current) => {
+      updateCart((current) => {
         const existing = current.find((item) => item.productId === product.stableId && item.variantId === variantId);
         if (existing) {
           return current.map((item) =>
@@ -107,7 +122,7 @@ export function StoreProvider({ children, products }: { children: React.ReactNod
       const safeQuantity = Math.max(1, Math.floor(quantity));
       const stableId = products.find((product) => product.id === id)?.stableId;
       if (!stableId) return;
-      setCartItems((current) =>
+      updateCart((current) =>
         current.map((item) =>
           item.productId === stableId && item.variantId === variantId ? { ...item, quantity: safeQuantity } : item,
         ),
@@ -117,19 +132,18 @@ export function StoreProvider({ children, products }: { children: React.ReactNod
     const decreaseCartQuantity = (id: number, variantId?: string) => {
       const stableId = products.find((product) => product.id === id)?.stableId;
       if (!stableId) return;
-      setCartItems((current) =>
-        current.map((item) =>
-          item.productId === stableId && item.variantId === variantId
-            ? { ...item, quantity: Math.max(1, item.quantity - 1) }
-            : item,
-        ),
+      updateCart((current) =>
+        current.flatMap((item) => {
+          if (item.productId !== stableId || item.variantId !== variantId) return [item];
+          return item.quantity > 1 ? [{ ...item, quantity: item.quantity - 1 }] : [];
+        }),
       );
     };
 
-    const removeFromCart = (id: number) => {
+    const removeFromCart = (id: number, variantId?: string) => {
       const stableId = products.find((product) => product.id === id)?.stableId;
       if (!stableId) return;
-      setCartItems((current) => current.filter((item) => item.productId !== stableId));
+      updateCart((current) => current.filter((item) => item.productId !== stableId || (variantId !== undefined && item.variantId !== variantId)));
     };
 
     const toggleFavorite = (id: number) => {
@@ -140,17 +154,20 @@ export function StoreProvider({ children, products }: { children: React.ReactNod
       products,
       cart,
       favorites,
+      cartDrawerOpen,
+      setCartDrawerOpen,
       addToCart,
       decreaseCartQuantity,
       setCartQuantity,
       removeFromCart,
-      clearCart: () => setCartItems([]),
+      persistCart: () => window.localStorage.setItem(cartStorageKey, JSON.stringify(cartItems)),
+      clearCart: () => updateCart(() => []),
       toggleFavorite,
       cartCount: cart.reduce((sum, item) => sum + item.quantity, 0),
       cartTotal: cart.reduce((sum, item) => sum + Math.round(item.price * 100) * item.quantity, 0) / 100,
       cartNotice,
     };
-  }, [cart, cartNotice, favorites, products]);
+  }, [cart, cartDrawerOpen, cartItems, cartNotice, favorites, hydrated, products]);
 
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;
 }

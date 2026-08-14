@@ -89,16 +89,19 @@ export async function createStripeCheckoutSession(input: {
   };
 
   const baseUrl = siteUrl();
-  return stripe.checkout.sessions.create({
-    mode: "payment",
-    payment_method_types: [input.stripePaymentMethod],
-    line_items: lineItems,
-    success_url: `${baseUrl}/${input.locale}/obrigado?pedido=${encodeURIComponent(input.orderNumber)}&stripe=success`,
-    cancel_url: `${baseUrl}/${input.locale}/checkout?stripe=cancelled&pedido=${encodeURIComponent(input.orderNumber)}`,
-    client_reference_id: String(input.orderId),
-    metadata,
-    payment_intent_data: { metadata },
-  });
+  return stripe.checkout.sessions.create(
+    {
+      mode: "payment",
+      payment_method_types: [input.stripePaymentMethod],
+      line_items: lineItems,
+      success_url: `${baseUrl}/${input.locale}/obrigado?pedido=${encodeURIComponent(input.orderNumber)}&stripe=success`,
+      cancel_url: `${baseUrl}/${input.locale}/checkout?stripe=cancelled&pedido=${encodeURIComponent(input.orderNumber)}`,
+      client_reference_id: String(input.orderId),
+      metadata,
+      payment_intent_data: { metadata },
+    },
+    { idempotencyKey: `checkout-order-${input.orderId}` },
+  );
 }
 
 export function constructStripeWebhookEvent(body: string, signature: string) {
