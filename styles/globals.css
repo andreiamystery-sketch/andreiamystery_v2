@@ -98,3 +98,24 @@ body:has(.admin-shell) [role="dialog"],
 body:has(.admin-shell) .music-player {
   display: none;
 }
+
+@media (min-width: 768px) and (hover: hover) and (pointer: fine) {
+  .business-entry-columns {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    transition: grid-template-columns 480ms cubic-bezier(0.2, 0.75, 0.25, 1);
+  }
+
+  .business-entry-columns:has(> :first-child:hover, > :first-child:focus-within) {
+    grid-template-columns: minmax(0, 1.2fr) minmax(0, 0.8fr);
+  }
+
+  .business-entry-columns:has(> :nth-child(2):hover, > :nth-child(2):focus-within) {
+    grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .business-entry-columns {
+    transition: none !important;
+  }
+}

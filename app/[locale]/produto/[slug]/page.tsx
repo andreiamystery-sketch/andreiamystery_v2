@@ -47,7 +47,7 @@ export default async function LocalizedProductPage({ params }: ProductPageProps)
   return (
     <main className="px-5 py-12 md:px-10 lg:py-20">
       <div className="mx-auto max-w-7xl">
-        <Breadcrumb items={[{ label: t.nav.home, href: `/${locale}` }, { label: t.nav.collection, href: `/${locale}/#colecao` }, { label: product.nome }]} />
+        <Breadcrumb items={[{ label: t.nav.home, href: `/${locale}` }, { label: t.nav.collection, href: `/${locale}/bijuteria#colecao` }, { label: product.nome }]} />
         <section className="mt-8 grid gap-12 lg:grid-cols-[1.05fr_0.95fr] lg:gap-16">
           <ProductGallery product={product} />
           <div className="self-center">

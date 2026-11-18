@@ -1,9 +1,10 @@
-﻿import { catalogProducts } from "@/data/products";
+import { getCatalogProducts } from "@/lib/managed-products";
 import { requireAdmin } from "@/lib/admin-auth";
 import { getProductStateOverrides, resolveProductState } from "@/lib/product-visibility";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { AdminProductsTable, type AdminProduct } from "@/components/admin/admin-products-table";
 import { AdminQuickActions } from "@/components/admin/admin-quick-actions";
+import Link from "next/link";
 import { logout } from "./actions";
 
 export const dynamic = "force-dynamic";
@@ -11,9 +12,10 @@ export const dynamic = "force-dynamic";
 export default async function AdminProductsPage() {
   const admin = await requireAdmin();
   const overrides = await getProductStateOverrides();
-  const products: AdminProduct[] = catalogProducts.map((product) => {
+  const catalog = await getCatalogProducts();
+  const products: AdminProduct[] = catalog.map((product) => {
     const state = resolveProductState(product, overrides);
-    return { id: String(product.id), name: product.nome, slug: product.slug, image: product.capa, sku: product.sku, stableId: product.stableId, supplierId: product.supplierProductId, category: product.categoria, supplier: product.supplier, price: product.price, visible: state.isVisible, bestSeller: state.isBestSeller, newArrival: state.isNewArrival };
+    return { id: String(product.id), name: product.nome, slug: product.slug, image: product.capa, sku: product.sku, stableId: product.stableId, supplierId: product.supplierProductId, category: product.categoria, supplier: product.supplier, price: product.price, visible: state.isVisible, bestSeller: state.isBestSeller, newArrival: state.isNewArrival, business: product.business ?? "bijuteria" };
   });
   const visible = products.filter((p) => p.visible).length;
   const bestSellers = products.filter((p) => p.bestSeller).length;
@@ -27,7 +29,7 @@ export default async function AdminProductsPage() {
       <div className="mx-auto max-w-[1500px]">
         <header className="flex flex-wrap items-start justify-between gap-5 border-b border-[#c9a45c]/25 pb-7">
           <div><p className="text-xs font-bold uppercase tracking-[.28em] text-[#c9a45c]">Andrea&apos;s Mystery</p><h1 className="mt-2 font-serif text-4xl sm:text-5xl">Gestão de produtos</h1><p className="mt-2 text-sm text-white/50">{admin.email}</p></div>
-          <form action={logout}><button className="min-h-11 border border-[#c9a45c]/50 px-5 text-[#e4c37d]">Terminar sessão</button></form>
+          <div className="flex flex-wrap gap-3"><Link href="/admin/produtos/novo" className="grid min-h-11 place-items-center bg-[#c9a45c] px-5 font-bold text-black">Adicionar produto</Link><form action={logout}><button className="min-h-11 border border-[#c9a45c]/50 px-5 text-[#e4c37d]">Terminar sessão</button></form></div>
         </header>
         <section className="my-7 grid grid-cols-2 gap-3 sm:grid-cols-5">
           <div className="border border-white/10 p-4"><strong className="block text-2xl">{products.length}</strong><span className="text-sm text-white/50">Total</span></div>

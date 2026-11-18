@@ -7,12 +7,14 @@ export function ProductSection({
   title,
   description,
   products,
+  limit = 12,
 }: {
   id?: string;
   eyebrow: string;
   title: string;
   description: string;
   products: Product[];
+  limit?: number;
 }) {
   if (products.length === 0) return null;
 
@@ -25,7 +27,7 @@ export function ProductSection({
           <p className="mt-5 font-serif text-lg leading-relaxed text-smoke">{description}</p>
         </div>
         <div className="mt-12 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
-          {products.slice(0, 12).map((product) => (
+          {products.slice(0, limit).map((product) => (
             <ProductCard key={product.id} product={product} />
           ))}
         </div>

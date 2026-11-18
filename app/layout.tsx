@@ -1,13 +1,9 @@
 ﻿import type { Metadata } from "next";
 import { Cormorant_Garamond, Manrope } from "next/font/google";
 import "@/styles/globals.css";
-import { ChatbotWidget } from "@/components/chatbot/chatbot-widget";
-import { CookieConsent } from "@/components/cookie-consent";
-import { Footer } from "@/components/footer";
 import { I18nProvider } from "@/components/i18n/i18n-provider";
-import { Header } from "@/components/header";
+import { SiteChrome } from "@/components/site-chrome";
 import { StoreProvider } from "@/hooks/use-store";
-import { MusicPlayer } from "@/components/music-player";
 import { companyConfig } from "@/config/company";
 import { seoConfig } from "@/config/seo";
 import { getPublishedProducts, toPublicProduct } from "@/lib/product-visibility";
@@ -59,12 +55,7 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
         <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationSchema) }} />
         <StoreProvider products={publishedProducts}>
           <I18nProvider>
-            <Header />
-            {children}
-            <Footer />
-            <MusicPlayer />
-            <CookieConsent />
-            <ChatbotWidget />
+            <SiteChrome>{children}</SiteChrome>
           </I18nProvider>
         </StoreProvider>
       </body>

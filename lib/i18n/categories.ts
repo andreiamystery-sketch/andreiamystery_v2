@@ -1,7 +1,7 @@
 ﻿import type { LocaleCode } from "@/config/locales";
 import type { Category } from "@/types/product";
 
-const categoryLabels: Record<LocaleCode, Record<"Todos" | Category, string>> = {
+const categoryLabels: Record<LocaleCode, Partial<Record<"Todos" | Category, string>>> = {
   pt: { Todos: "Ver tudo", "Anéis": "Anéis", Brincos: "Brincos", Colares: "Colares", Pulseiras: "Pulseiras" },
   en: { Todos: "View all", "Anéis": "Rings", Brincos: "Earrings", Colares: "Necklaces", Pulseiras: "Bracelets" },
   es: { Todos: "Ver todo", "Anéis": "Anillos", Brincos: "Pendientes", Colares: "Collares", Pulseiras: "Pulseras" },
@@ -10,7 +10,7 @@ const categoryLabels: Record<LocaleCode, Record<"Todos" | Category, string>> = {
   zh: { Todos: "查看全部", "Anéis": "戒指", Brincos: "耳环", Colares: "项链", Pulseiras: "手链" },
 };
 
-const categoryDescriptions: Record<LocaleCode, Record<"Todos" | Category, string>> = {
+const categoryDescriptions: Record<LocaleCode, Partial<Record<"Todos" | Category, string>>> = {
   pt: { Todos: "Seleção completa Andrea's Mystery.", "Anéis": "Alianças delicadas, cristais e linhas minimalistas.", Brincos: "Luz junto ao rosto, com zircónias e pérolas.", Colares: "Pontos de brilho para decotes limpos.", Pulseiras: "Detalhes dourados para gestos elegantes." },
   en: { Todos: "The complete Andrea's Mystery selection.", "Anéis": "Delicate bands, crystals and minimalist lines.", Brincos: "Light close to the face, with zirconia and pearls.", Colares: "Points of shine for clean necklines.", Pulseiras: "Golden details for elegant gestures." },
   es: { Todos: "La selección completa de Andrea's Mystery.", "Anéis": "Aros delicados, cristales y líneas minimalistas.", Brincos: "Luz junto al rostro, con circonitas y perlas.", Colares: "Puntos de brillo para escotes limpios.", Pulseiras: "Detalles dorados para gestos elegantes." },

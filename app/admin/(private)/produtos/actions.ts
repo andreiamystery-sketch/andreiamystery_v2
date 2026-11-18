@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { catalogProducts } from "@/data/products";
+import { getCatalogProducts } from "@/lib/managed-products";
 import { requireAdmin } from "@/lib/admin-auth";
 import {
   getProductStateOverrides,
@@ -20,18 +20,19 @@ export type AdminFilters = {
 export type ActionResult = { ok: boolean; updated: number; message: string };
 type ProductStatePatch = Partial<ProductState>;
 
-const MAX_IDS = catalogProducts.length;
+const MAX_IDS = 5000;
 const BATCH_SIZE = 100;
 const normalize = (value: string) =>
   value.normalize("NFD").replace(/\p{Diacritic}/gu, "").toLowerCase();
 
 function idsForFilters(
   filters: AdminFilters,
-  states: Awaited<ReturnType<typeof getProductStateOverrides>>
+  states: Awaited<ReturnType<typeof getProductStateOverrides>>,
+  products: Awaited<ReturnType<typeof getCatalogProducts>>,
 ) {
   const query = normalize(filters.query ?? "");
 
-  return catalogProducts
+  return products
     .filter((product) => {
       const haystack = normalize(
         [product.nome, product.id, product.sku, product.supplierProductId, product.stableId]
@@ -88,7 +89,8 @@ async function performUpdate(
     return { ok: false, updated: 0, message: `O limite por operaÃ§Ã£o Ã© ${MAX_IDS} produtos.` };
   }
 
-  const productById = new Map(catalogProducts.map((product) => [String(product.id), product]));
+  const catalog = await getCatalogProducts();
+  const productById = new Map(catalog.map((product) => [String(product.id), product]));
 
   if (ids.some((id) => !productById.has(id))) {
     return { ok: false, updated: 0, message: "A seleÃ§Ã£o contÃ©m IDs de produto inexistentes." };
@@ -145,9 +147,11 @@ async function performUpdate(
     metadata: { ...metadata, ...patch, quantity: ids.length },
   });
 
-  ["/", "/produtos", "/admin/produtos", "/checkout"].forEach((path) =>
+  ["/", "/produtos", "/admin/produtos", "/checkout", "/gravacoes"].forEach((path) =>
     revalidatePath(path)
   );
+  revalidatePath("/[locale]/bijuteria", "page");
+  revalidatePath("/[locale]/gravacoes", "page");
   revalidatePath("/produto/[slug]", "page");
   revalidatePath("/categoria/[slug]", "page");
 
@@ -179,7 +183,8 @@ async function setFilteredState(
 ) {
   await requireAdmin();
   const states = await getProductStateOverrides();
-  return performUpdate(idsForFilters(filters, states), patch, action, { filters });
+  const products = await getCatalogProducts();
+  return performUpdate(idsForFilters(filters, states, products), patch, action, { filters });
 }
 
 export async function setFilteredProductsVisibility(filters: AdminFilters, value: unknown) {

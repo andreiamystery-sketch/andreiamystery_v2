@@ -1,6 +1,7 @@
 ﻿import type { AppLocale } from "@/config/locales";
 
-export type Category = "Anéis" | "Brincos" | "Colares" | "Pulseiras";
+export type Category = "Anéis" | "Brincos" | "Colares" | "Pulseiras" | "Gravações";
+export type ProductBusiness = "bijuteria" | "gravacoes";
 
 export type ProductTranslationContent = {
   name?: string | null;
@@ -64,6 +65,7 @@ export type Product = ProductTranslations & {
   updatedAt: string;
   featured?: boolean;
   novidade?: boolean;
+  business?: ProductBusiness;
 };
 
 export type CategoryFilter = {

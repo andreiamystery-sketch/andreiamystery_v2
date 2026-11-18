@@ -31,6 +31,7 @@ export type AdminProduct = {
   visible: boolean;
   bestSeller: boolean;
   newArrival: boolean;
+  business?: "bijuteria" | "gravacoes";
 };
 
 type SortOrder =
@@ -111,6 +112,7 @@ export function AdminProductsTable({
           product.supplierId,
           product.stableId,
           product.category,
+          product.business,
           product.supplier,
         ]
           .filter(Boolean)
@@ -537,7 +539,7 @@ export function AdminProductsTable({
                       )}
                     </td>
 
-                    <td className="p-3">{product.category}</td>
+                    <td className="p-3"><span className="block text-xs uppercase tracking-wide text-[#e4c37d]">{product.business === "gravacoes" ? "Gravações" : "Bijuteria"}</span>{product.category}</td>
                     <td className="p-3">{product.supplier}</td>
                     <td className="p-3">
                       {money.format(product.price)}
@@ -587,7 +589,7 @@ export function AdminProductsTable({
                   </strong>
 
                   <p className="text-xs text-white/50">
-                    {product.sku ?? product.stableId} ·{" "}
+                    {product.business === "gravacoes" ? "Gravações" : "Bijuteria"} · {product.sku ?? product.stableId} ·{" "}
                     {product.supplier}
                   </p>
 

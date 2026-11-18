@@ -2,6 +2,7 @@
 
 import { unstable_noStore as noStore } from "next/cache";
 import { catalogProducts } from "@/data/products";
+import { getManagedProducts } from "@/lib/managed-products";
 import type { Product } from "@/types/product";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
@@ -82,8 +83,9 @@ export async function getProductVisibility(product: Product) {
 
 export async function getPublishedProducts() {
   const overrides = await getProductStateOverrides();
+  const products = [...catalogProducts, ...await getManagedProducts()];
 
-  return catalogProducts.flatMap((product) => {
+  return products.flatMap((product) => {
     const state = resolveProductState(product, overrides);
 
     if (!state.isVisible) {
@@ -96,6 +98,7 @@ export async function getPublishedProducts() {
       isFeatured: state.isBestSeller,
       featured: state.isBestSeller,
       novidade: state.isNewArrival,
+      business: product.business ?? "bijuteria",
     }];
   });
 }

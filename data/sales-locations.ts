@@ -34,6 +34,17 @@ export const salesLocations: SalesLocation[] = [
     mapEmbedUrl:
       "https://www.google.com/maps?q=Rua+Doutor+R.+Manuel+de+Arriaga+303,+4440-004+Campo,+Valongo&output=embed",
   },
+  {
+    id: "caju-clothes-accessories",
+    name: "CA.JU clothes & acessories",
+    type: "partner",
+    address: "Rua Salgueiro Maia, n.º 15 r/c",
+    locality: "Lousada",
+    postalCode: "4620-669",
+    isPublished: true,
+    mapUrl: "https://www.google.com/maps/search/?api=1&query=CA.JU+clothes+%26+acessories%2C+Rua+Salgueiro+Maia%2C+n.%C2%BA+15+r%2Fc%2C+4620-669+Lousada",
+    mapEmbedUrl: "https://www.google.com/maps?q=CA.JU+clothes+%26+acessories%2C+Rua+Salgueiro+Maia%2C+n.%C2%BA+15+r%2Fc%2C+4620-669+Lousada&output=embed",
+  },
 ];
 
 export const publishedSalesLocations = salesLocations.filter(
